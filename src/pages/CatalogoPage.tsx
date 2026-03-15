@@ -1,7 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import PromoBar from "@/components/catalog/PromoBar";
 import CatalogHeader from "@/components/catalog/CatalogHeader";
 import CollectionChips from "@/components/catalog/CollectionChips";
@@ -168,7 +166,6 @@ const CatalogoPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <PromoBar />
-      <Header />
 
       <main>
         <CatalogHeader />
@@ -258,7 +255,6 @@ const CatalogoPage = () => {
         <CatalogFAQ />
       </main>
 
-      <Footer />
 
       <QuickViewModal
         product={selectedProduct}

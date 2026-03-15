@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckoutDraft } from "@/types/checkout";
 
 const STORAGE_KEY = "EA_CHECKOUT_DRAFT_V1";
@@ -6,6 +6,8 @@ const STORAGE_KEY = "EA_CHECKOUT_DRAFT_V1";
 export function useCheckoutDraft() {
   const [draft, setDraft] = useState<CheckoutDraft | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -21,34 +23,31 @@ export function useCheckoutDraft() {
     }
   }, []);
 
-  // Save to localStorage with debounce
-  const saveDraft = useCallback(
-    (newDraft: CheckoutDraft) => {
-      try {
-        const draftToSave = {
-          ...newDraft,
-          updatedAt: new Date().toISOString(),
-          createdAt: newDraft.createdAt || new Date().toISOString(),
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(draftToSave));
-        setDraft(draftToSave);
-      } catch (error) {
-        console.error("Error saving checkout draft:", error);
-      }
-    },
-    []
-  );
+  // Save to localStorage
+  const saveDraft = useCallback((newDraft: CheckoutDraft) => {
+    try {
+      const draftToSave = {
+        ...newDraft,
+        updatedAt: new Date().toISOString(),
+        createdAt: newDraft.createdAt || new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draftToSave));
+      setDraft(draftToSave);
+    } catch (error) {
+      console.error("Error saving checkout draft:", error);
+    }
+  }, []);
 
-  // Update draft with debounce
+  // Update draft — use ref to avoid draft in deps (prevents infinite loop when saveDraft calls setDraft)
   const updateDraft = useCallback(
     (updates: Partial<CheckoutDraft>) => {
       const updatedDraft = {
-        ...draft,
+        ...draftRef.current,
         ...updates,
       } as CheckoutDraft;
       saveDraft(updatedDraft);
     },
-    [draft, saveDraft]
+    [saveDraft]
   );
 
   // Clear draft

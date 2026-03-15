@@ -1,19 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Edit, Trash2, MapPin, Check } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useCustomerStore } from "@/store/customer.store";
 import { Address, AddressLabel } from "@/types/account";
 import { formatCEP, isValidCEP } from "@/lib/validators";
 import { toast } from "@/hooks/use-toast";
 import { useCheckoutDraft } from "@/hooks/use-checkout-draft";
+import { motion } from "framer-motion";
 
 const Addresses = () => {
   const navigate = useNavigate();
@@ -35,48 +31,47 @@ const Addresses = () => {
       },
     });
     navigate("/checkout");
-    toast({
-      title: "Endereço selecionado",
-      description: "O endereço foi pré-preenchido no checkout.",
-    });
+    toast({ title: "Endereço selecionado", description: "O endereço foi pré-preenchido no checkout." });
   };
 
   const handleDelete = (id: string) => {
     if (confirm("Tem certeza que deseja remover este endereço?")) {
       removeAddress(id);
-      toast({
-        title: "Endereço removido",
-        description: "O endereço foi removido com sucesso.",
-      });
+      toast({ title: "Endereço removido", description: "O endereço foi removido com sucesso." });
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-24 pb-20">
+    <div className="min-h-screen bg-[var(--bg-base)]">
+      <main className="pt-28 pb-24">
         <div className="container mx-auto px-4 max-w-4xl">
-          {/* Breadcrumb */}
           <Link
             to="/conta"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 font-body"
+            className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-gold
+              transition-colors duration-200 mb-8 font-body text-sm group"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
             Voltar para conta
           </Link>
 
           <div className="flex items-center justify-between mb-8">
-            <h1 className="font-display text-4xl font-bold text-foreground">
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground">
               Meus Endereços
             </h1>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="gold" onClick={() => setEditingAddress(null)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Endereço
-                </Button>
+                <button
+                  onClick={() => setEditingAddress(null)}
+                  className="shine-effect flex items-center gap-2 bg-gradient-gold text-[#080808]
+                    font-body font-bold py-2.5 px-5 rounded-xl text-sm
+                    hover:-translate-y-0.5 hover:shadow-gold-sm
+                    transition-all duration-250 ease-expo-out"
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo Endereço
+                </button>
               </DialogTrigger>
-              <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="glass border-[var(--glass-border)] max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-display text-2xl font-bold text-foreground">
                     {editingAddress ? "Editar Endereço" : "Novo Endereço"}
@@ -87,16 +82,10 @@ const Addresses = () => {
                   onSave={(address) => {
                     if (editingAddress) {
                       updateAddress(editingAddress.id, address);
-                      toast({
-                        title: "Endereço atualizado",
-                        description: "O endereço foi atualizado com sucesso.",
-                      });
+                      toast({ title: "Endereço atualizado", description: "O endereço foi atualizado com sucesso." });
                     } else {
                       addAddress(address);
-                      toast({
-                        title: "Endereço adicionado",
-                        description: "O endereço foi adicionado com sucesso.",
-                      });
+                      toast({ title: "Endereço adicionado", description: "O endereço foi adicionado com sucesso." });
                     }
                     setIsDialogOpen(false);
                     setEditingAddress(null);
@@ -106,103 +95,102 @@ const Addresses = () => {
             </Dialog>
           </div>
 
-          {/* Addresses List */}
           {addresses.length === 0 ? (
             <div className="text-center py-20">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-card border border-border flex items-center justify-center">
-                <MapPin className="w-12 h-12 text-muted-foreground" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl glass border border-[var(--glass-border)]
+                flex items-center justify-center">
+                <MapPin className="w-9 h-9 text-muted-foreground/30" />
               </div>
-              <h2 className="font-display text-2xl font-bold text-foreground mb-4">
+              <h2 className="font-display text-2xl font-bold text-foreground mb-3">
                 Nenhum endereço cadastrado
               </h2>
-              <p className="text-muted-foreground font-body mb-8">
+              <p className="text-muted-foreground/60 font-body text-sm mb-8">
                 Adicione um endereço para facilitar suas compras
               </p>
-              <Button variant="gold" onClick={() => setIsDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
+              <button
+                onClick={() => setIsDialogOpen(true)}
+                className="inline-flex items-center gap-2 shine-effect bg-gradient-gold text-[#080808]
+                  font-body font-bold py-3 px-6 rounded-xl text-sm
+                  hover:-translate-y-0.5 hover:shadow-gold-md
+                  transition-all duration-250 ease-expo-out"
+              >
+                <Plus className="w-4 h-4" />
                 Adicionar Primeiro Endereço
-              </Button>
+              </button>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-6">
-              {addresses.map((address) => (
-                <div
+            <div className="grid md:grid-cols-2 gap-5">
+              {addresses.map((address, i) => (
+                <motion.div
                   key={address.id}
-                  className="bg-card rounded-lg border border-border p-6 relative"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.07, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="glass rounded-xl p-5 border border-[var(--glass-border)] relative"
                 >
                   {address.isDefault && (
-                    <div className="absolute top-4 right-4">
-                      <Badge className="bg-primary text-primary-foreground font-body">
-                        Padrão
-                      </Badge>
-                    </div>
+                    <span className="absolute top-4 right-4 text-[10px] font-body font-bold
+                      text-gold border border-gold/30 bg-gold/10 px-2.5 py-0.5 rounded-full">
+                      Padrão
+                    </span>
                   )}
-                  <div className="mb-4">
-                    <h3 className="font-display text-lg font-semibold text-foreground mb-2">
-                      {address.label}
-                    </h3>
-                    <div className="space-y-1 text-sm text-foreground font-body">
-                      <p>
-                        {address.addressLine1}
-                        {address.addressLine2 && ` - ${address.addressLine2}`}
-                      </p>
-                      <p>
-                        {address.neighborhood}, {address.city} - {address.state}
-                      </p>
-                      <p>CEP: {address.cep}</p>
-                      {address.reference && (
-                        <p className="text-muted-foreground">
-                          Referência: {address.reference}
-                        </p>
-                      )}
-                    </div>
+                  <h3 className="font-display text-base font-semibold text-foreground mb-2">
+                    {address.label}
+                  </h3>
+                  <div className="space-y-0.5 text-sm text-muted-foreground font-body mb-4">
+                    <p className="text-foreground/80">
+                      {address.addressLine1}
+                      {address.addressLine2 && ` - ${address.addressLine2}`}
+                    </p>
+                    <p>{address.neighborhood}, {address.city} - {address.state}</p>
+                    <p>CEP: {address.cep}</p>
+                    {address.reference && <p className="text-muted-foreground/60">Ref: {address.reference}</p>}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {!address.isDefault && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <button
                         onClick={() => setDefaultAddress(address.id)}
+                        className="flex items-center gap-1.5 glass rounded-lg px-3 py-1.5 text-xs font-body
+                          font-medium text-muted-foreground/60 border border-[var(--glass-border)]
+                          hover:border-gold/30 hover:text-gold transition-all duration-200"
                       >
-                        <Check className="w-4 h-4 mr-1" />
+                        <Check className="w-3 h-3" />
                         Tornar padrão
-                      </Button>
+                      </button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingAddress(address);
-                        setIsDialogOpen(true);
-                      }}
+                    <button
+                      onClick={() => { setEditingAddress(address); setIsDialogOpen(true); }}
+                      className="flex items-center gap-1.5 glass rounded-lg px-3 py-1.5 text-xs font-body
+                        font-medium text-muted-foreground/60 border border-[var(--glass-border)]
+                        hover:border-gold/30 hover:text-gold transition-all duration-200"
                     >
-                      <Edit className="w-4 h-4 mr-1" />
+                      <Edit className="w-3 h-3" />
                       Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    </button>
+                    <button
                       onClick={() => handleDelete(address.id)}
-                      className="text-destructive hover:text-destructive"
+                      className="flex items-center gap-1.5 glass rounded-lg px-3 py-1.5 text-xs font-body
+                        font-medium text-muted-foreground/60 border border-[var(--glass-border)]
+                        hover:border-red-500/30 hover:text-red-400 transition-all duration-200"
                     >
-                      <Trash2 className="w-4 h-4 mr-1" />
+                      <Trash2 className="w-3 h-3" />
                       Remover
-                    </Button>
-                    <Button
-                      variant="gold"
-                      size="sm"
+                    </button>
+                    <button
                       onClick={() => handleUseInCheckout(address)}
+                      className="flex items-center gap-1.5 bg-gradient-gold text-[#080808]
+                        rounded-lg px-3 py-1.5 text-xs font-body font-bold
+                        hover:shadow-gold-sm transition-all duration-200"
                     >
                       Usar no checkout
-                    </Button>
+                    </button>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 };
@@ -211,6 +199,11 @@ interface AddressFormProps {
   address?: Address | null;
   onSave: (address: Omit<Address, "id" | "isDefault">) => void;
 }
+
+const inputClass = `w-full glass rounded-xl px-4 py-2.5 text-sm font-body text-foreground
+  placeholder:text-muted-foreground/40
+  focus:border-gold/30 focus:ring-2 focus:ring-gold/10 focus:outline-none
+  transition-all duration-200 mt-1.5`;
 
 const AddressForm = ({ address, onSave }: AddressFormProps) => {
   const [formData, setFormData] = useState({
@@ -226,16 +219,10 @@ const AddressForm = ({ address, onSave }: AddressFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!isValidCEP(formData.cep)) {
-      toast({
-        title: "CEP inválido",
-        description: "Digite um CEP válido.",
-        variant: "destructive",
-      });
+      toast({ title: "CEP inválido", description: "Digite um CEP válido.", variant: "destructive" });
       return;
     }
-
     onSave({
       label: formData.label,
       cep: formData.cep,
@@ -249,149 +236,102 @@ const AddressForm = ({ address, onSave }: AddressFormProps) => {
     });
   };
 
-  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCEP(e.target.value);
-    setFormData({ ...formData, cep: formatted });
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="label" className="text-foreground font-body">
-          Tipo de Endereço *
-        </Label>
-        <Select
-          value={formData.label}
-          onValueChange={(value) =>
-            setFormData({ ...formData, label: value as AddressLabel })
-          }
-        >
-          <SelectTrigger className="mt-2 bg-secondary border-border">
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Tipo *</Label>
+        <Select value={formData.label} onValueChange={(v) => setFormData({ ...formData, label: v as AddressLabel })}>
+          <SelectTrigger className="glass rounded-xl border-[var(--glass-border)] mt-1.5 text-sm font-body">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-card border-border">
+          <SelectContent className="glass border-[var(--glass-border)]">
             <SelectItem value="Casa">Casa</SelectItem>
             <SelectItem value="Trabalho">Trabalho</SelectItem>
             <SelectItem value="Outro">Outro</SelectItem>
           </SelectContent>
         </Select>
       </div>
-
       <div>
-        <Label htmlFor="cep" className="text-foreground font-body">
-          CEP *
-        </Label>
-        <Input
-          id="cep"
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">CEP *</Label>
+        <input
           type="tel"
           value={formData.cep}
-          onChange={handleCEPChange}
-          className="mt-2 bg-secondary border-border"
+          onChange={(e) => setFormData({ ...formData, cep: formatCEP(e.target.value) })}
+          className={inputClass}
           placeholder="00000-000"
           maxLength={9}
           required
         />
       </div>
-
       <div>
-        <Label htmlFor="addressLine1" className="text-foreground font-body">
-          Endereço (Rua, Número) *
-        </Label>
-        <Input
-          id="addressLine1"
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Endereço *</Label>
+        <input
           value={formData.addressLine1}
-          onChange={(e) =>
-            setFormData({ ...formData, addressLine1: e.target.value })
-          }
-          className="mt-2 bg-secondary border-border"
+          onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+          className={inputClass}
           placeholder="Rua, Avenida, Número"
           required
         />
       </div>
-
       <div>
-        <Label htmlFor="addressLine2" className="text-foreground font-body">
-          Complemento
-        </Label>
-        <Input
-          id="addressLine2"
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Complemento</Label>
+        <input
           value={formData.addressLine2}
-          onChange={(e) =>
-            setFormData({ ...formData, addressLine2: e.target.value })
-          }
-          className="mt-2 bg-secondary border-border"
+          onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+          className={inputClass}
           placeholder="Apto, Bloco, etc."
         />
       </div>
-
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="neighborhood" className="text-foreground font-body">
-            Bairro *
-          </Label>
-          <Input
-            id="neighborhood"
+          <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Bairro *</Label>
+          <input
             value={formData.neighborhood}
-            onChange={(e) =>
-              setFormData({ ...formData, neighborhood: e.target.value })
-            }
-            className="mt-2 bg-secondary border-border"
+            onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+            className={inputClass}
             required
           />
         </div>
-
         <div>
-          <Label htmlFor="city" className="text-foreground font-body">
-            Cidade *
-          </Label>
-          <Input
-            id="city"
+          <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Cidade *</Label>
+          <input
             value={formData.city}
-            onChange={(e) =>
-              setFormData({ ...formData, city: e.target.value })
-            }
-            className="mt-2 bg-secondary border-border"
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            className={inputClass}
             required
           />
         </div>
       </div>
-
       <div>
-        <Label htmlFor="state" className="text-foreground font-body">
-          Estado (UF) *
-        </Label>
-        <Input
-          id="state"
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Estado (UF) *</Label>
+        <input
           value={formData.state}
-          onChange={(e) =>
-            setFormData({ ...formData, state: e.target.value.toUpperCase() })
-          }
-          className="mt-2 bg-secondary border-border uppercase"
+          onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+          className={`${inputClass} uppercase`}
           placeholder="SP"
           maxLength={2}
           required
         />
       </div>
-
       <div>
-        <Label htmlFor="reference" className="text-foreground font-body">
-          Referência
-        </Label>
-        <Input
-          id="reference"
+        <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">Referência</Label>
+        <input
           value={formData.reference}
-          onChange={(e) =>
-            setFormData({ ...formData, reference: e.target.value })
-          }
-          className="mt-2 bg-secondary border-border"
+          onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+          className={inputClass}
           placeholder="Ponto de referência"
         />
       </div>
-
-      <div className="flex justify-end gap-4 pt-4">
-        <Button type="submit" variant="gold">
+      <div className="flex justify-end pt-2">
+        <button
+          type="submit"
+          className="shine-effect bg-gradient-gold text-[#080808] font-body font-bold
+            py-3 px-6 rounded-xl text-sm
+            hover:-translate-y-0.5 hover:shadow-gold-sm
+            transition-all duration-250 ease-expo-out"
+        >
           {address ? "Salvar Alterações" : "Adicionar Endereço"}
-        </Button>
+        </button>
       </div>
     </form>
   );

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Star, Quote } from "lucide-react";
+import { Star } from "lucide-react";
 
 const testimonials = [
   {
@@ -20,7 +20,7 @@ const testimonials = [
     name: "Pedro H.",
     location: "Curitiba, PR",
     rating: 5,
-    text: "Cético no início, mas me surpreendi. O envio foi super rápido e o perfume é exatamente como descrito. Virei cliente fiel.",
+    text: "Cético no início, mas me surpreendi completamente. O envio foi super rápido e o perfume é exatamente como descrito. Virei cliente fiel.",
     product: "Amber Noir",
   },
   {
@@ -32,61 +32,90 @@ const testimonials = [
   },
 ];
 
+const stats = [
+  { value: "2.847", label: "Avaliações" },
+  { value: "4.9/5", label: "Nota Média" },
+  { value: "98%",   label: "Satisfação" },
+  { value: "15k+",  label: "Clientes" },
+];
+
 const TestimonialsSection = () => {
   return (
-    <section className="py-20 bg-card">
+    <section className="py-24 bg-[#0d0d0d] relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" aria-hidden="true" />
+
       <div className="container mx-auto px-4">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center mb-16"
         >
-          <span className="text-primary font-body text-sm uppercase tracking-widest mb-4 block">
-            Prova Social
-          </span>
+          <div className="ornament-line mb-4">
+            <span className="text-gold/60 text-[10px] uppercase tracking-[0.3em] font-body px-3">
+              Prova Social
+            </span>
+          </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-            O que nossos clientes <span className="text-gradient-gold">dizem</span>
+            O que nossos clientes{" "}
+            <span className="text-gradient-gold">dizem</span>
           </h2>
-          <p className="text-muted-foreground font-body max-w-2xl mx-auto">
-            Mais de 2.800 avaliações 5 estrelas de clientes satisfeitos
+          <p className="text-muted-foreground font-body max-w-xl mx-auto">
+            Mais de 2.800 avaliações 5 estrelas de clientes satisfeitos em todo o Brasil
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <motion.div
-              key={testimonial.name}
-              initial={{ opacity: 0, y: 30 }}
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-20">
+          {testimonials.map((t, i) => (
+            <motion.article
+              key={t.name}
+              initial={{ opacity: 0, y: 32 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-background rounded-2xl p-6 border border-border relative"
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="glass rounded-2xl p-6 flex flex-col gap-4
+                hover:-translate-y-1 hover:border-[rgba(255,255,255,0.12)]
+                transition-all duration-300 ease-expo-out"
             >
-              <Quote className="absolute top-4 right-4 w-8 h-8 text-primary/20" />
-              
-              <div className="flex items-center gap-1 mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+              {/* Stars */}
+              <div className="flex gap-0.5">
+                {[...Array(t.rating)].map((_, si) => (
+                  <Star key={si} className="w-3.5 h-3.5 fill-gold text-gold" />
                 ))}
               </div>
 
-              <p className="text-foreground font-body text-sm leading-relaxed mb-4">
-                "{testimonial.text}"
-              </p>
+              {/* Citação em Cormorant */}
+              <blockquote className="text-editorial text-foreground/85 text-base leading-relaxed flex-1">
+                "{t.text}"
+              </blockquote>
 
-              <div className="border-t border-border pt-4">
-                <p className="font-display font-semibold text-foreground">
-                  {testimonial.name}
-                </p>
-                <p className="text-muted-foreground text-xs font-body">
-                  {testimonial.location}
-                </p>
-                <p className="text-primary text-xs font-body mt-1">
-                  Comprou: {testimonial.product}
+              {/* Autor */}
+              <div className="border-t border-[var(--glass-border)] pt-4">
+                <div className="flex items-center gap-3">
+                  {/* Avatar com inicial */}
+                  <div className="w-8 h-8 rounded-full bg-gold/15 border border-gold/25
+                    flex items-center justify-center shrink-0">
+                    <span className="text-gold text-xs font-display font-bold">
+                      {t.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-body font-semibold text-sm text-foreground leading-none">
+                      {t.name}
+                    </p>
+                    <p className="text-muted-foreground text-xs font-body mt-0.5">
+                      {t.location}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gold/70 text-xs font-body mt-2.5 uppercase tracking-wide">
+                  {t.product}
                 </p>
               </div>
-            </motion.div>
+            </motion.article>
           ))}
         </div>
 
@@ -94,26 +123,31 @@ const TestimonialsSection = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8"
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-8"
         >
-          {[
-            { value: "2.847", label: "Avaliações" },
-            { value: "4.9/5", label: "Nota Média" },
-            { value: "98%", label: "Satisfação" },
-            { value: "15k+", label: "Clientes" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <p className="font-display text-3xl md:text-4xl font-bold text-gradient-gold">
-                {stat.value}
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center"
+            >
+              <p className="font-display text-3xl md:text-4xl font-bold text-gradient-gold mb-1">
+                {s.value}
               </p>
-              <p className="text-muted-foreground font-body text-sm">
-                {stat.label}
+              <p className="text-muted-foreground font-body text-sm uppercase tracking-wider">
+                {s.label}
               </p>
-            </div>
+            </motion.div>
           ))}
         </motion.div>
       </div>
+
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" aria-hidden="true" />
     </section>
   );
 };

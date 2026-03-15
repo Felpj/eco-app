@@ -95,10 +95,7 @@ const rawProducts = [
   {"name":"Veneno Bianco","brand":"AL WATANIAH / FRENCH AVENUE","audience":"Unissex","size_ml":100,"inspired_by":null,"cost_usd":38.00,"wholesale_usd":36.00,"stock":5,"availability":"in_stock","is_best_seller":false,"tags":["premium","noite","intenso"]}
 ] as const;
 
-// Generate placeholder images based on product characteristics
-function getProductImage(name: string, brand: string): string {
-  return `https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&h=400&fit=crop&auto=format`;
-}
+import { getProductImage } from "./productImages";
 
 export const products: Product[] = rawProducts.map((raw, index) => {
   const { rating, reviews_count } = generateRating();

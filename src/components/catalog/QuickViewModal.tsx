@@ -4,6 +4,7 @@ import { X, Star, Minus, Plus, MessageCircle, ShoppingCart, Bell, ExternalLink }
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Product } from "@/data/products";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -29,7 +30,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
 
   const handleWhatsApp = () => {
     const message = `Olá! Quero comprar ${quantity}x ${product.name} (${product.brand}) - ${product.size_ml}ml - R$ ${product.price_brl * quantity}`;
-    window.open(`https://wa.me/5511999999999?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (
@@ -38,7 +39,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
         <div className="grid md:grid-cols-2 gap-0">
           {/* Image */}
           <div className="relative aspect-square bg-gradient-dark">
-            <img
+            <ProductImage
               src={product.image}
               alt={product.name}
               className="w-full h-full object-cover"

@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutSteps } from "@/components/checkout/CheckoutSteps";
 import { ContactStep, ContactFormData } from "@/components/checkout/ContactStep";
 import { ShippingStep, ShippingFormData } from "@/components/checkout/ShippingStep";
@@ -15,6 +13,7 @@ import { OrderBumpCard } from "@/components/upsell/OrderBumpCard";
 import { useCartStore } from "@/store/cart.store";
 import { useCheckoutDraft } from "@/hooks/use-checkout-draft";
 import { getEligibleOffers } from "@/data/upsellOffers";
+import { cn } from "@/lib/utils";
 
 const steps = [
   { id: "contact", label: "Contato", number: 1 },
@@ -30,11 +29,11 @@ const Checkout = () => {
   const cartTotal = getSubtotal();
   const cartProductIds = items.map((item) => item.product.id);
 
-  // Busca order bumps elegíveis para checkout
   const orderBumps = getEligibleOffers("CHECKOUT", cartTotal, cartProductIds).filter(
     (o) => o.type === "ORDER_BUMP"
   );
   const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [contactData, setContactData] = useState<ContactFormData | null>(
     draft?.contact
       ? {
@@ -56,9 +55,7 @@ const Checkout = () => {
           city: draft.delivery.city,
           state: draft.delivery.state,
           shippingMethod:
-            draft.delivery.shippingMethodId === "EXPRESS_24H"
-              ? "express"
-              : "normal",
+            draft.delivery.shippingMethodId === "EXPRESS_24H" ? "express" : "normal",
         }
       : null
   );
@@ -72,28 +69,31 @@ const Checkout = () => {
   );
   const [acceptTerms, setAcceptTerms] = useState(draft?.acceptTerms || false);
 
-  // Redirect if cart is empty
-  if (items.length === 0) {
-    navigate("/carrinho");
-    return null;
-  }
+  // Redirect empty cart in useEffect (never during render — causes "Cannot update component while rendering")
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate("/carrinho");
+    }
+  }, [items.length, navigate]);
 
   const handleContactSubmit = (data: ContactFormData) => {
     setContactData(data);
+    setDirection(1);
     setCurrentStep(1);
   };
 
   const handleShippingSubmit = (data: ShippingFormData) => {
     setShippingData(data);
+    setDirection(1);
     setCurrentStep(2);
   };
 
   const handlePaymentSubmit = (data: PaymentFormData) => {
     setPaymentData(data);
+    setDirection(1);
     setCurrentStep(3);
   };
 
-  // Save draft on data changes
   useEffect(() => {
     if (contactData || shippingData || paymentData) {
       updateDraft({
@@ -114,20 +114,14 @@ const Checkout = () => {
               city: shippingData.city,
               state: shippingData.state,
               shippingMethodId:
-                shippingData.shippingMethod === "express"
-                  ? "EXPRESS_24H"
-                  : "STANDARD",
+                shippingData.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD",
             }
           : undefined,
         payment: paymentData
-          ? {
-              method: paymentData.method.toUpperCase() as "PIX" | "CARD",
-            }
+          ? { method: paymentData.method.toUpperCase() as "PIX" | "CARD" }
           : undefined,
         orderBump: paymentData
-          ? {
-              enabled: paymentData.addUpsell || false,
-            }
+          ? { enabled: paymentData.addUpsell || false }
           : undefined,
         acceptTerms,
       });
@@ -136,7 +130,6 @@ const Checkout = () => {
 
   const handleFinalSubmit = () => {
     if (!acceptTerms) {
-      // Scroll to terms checkbox
       const termsCheckbox = document.getElementById("accept-terms");
       if (termsCheckbox) {
         termsCheckbox.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -145,55 +138,59 @@ const Checkout = () => {
       return;
     }
 
-    // Generate mock order ID
-    const orderId = `EA-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(
-      Date.now()
-    ).slice(-4)}`;
-
-    // Clear cart and draft
+    const orderId = `EA-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(Date.now()).slice(-4)}`;
     clearCart();
     clearDraft();
-
-    // Navigate to success page
     navigate(`/pedido/${orderId}`);
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    } else {
-      navigate("/carrinho");
+    setDirection(-1);
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
+    else navigate("/carrinho");
+  };
+
+  const handleStepSubmit = () => {
+    const form = document.querySelector("form");
+    if (form) {
+      const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      if (submitButton) submitButton.click();
     }
+  };
+
+  // Render nothing while redirecting (all hooks must run before any return)
+  if (items.length === 0) {
+    return null;
+  }
+
+  const stepVariants = {
+    enter: (dir: number) => ({
+      opacity: 0,
+      x: dir > 0 ? 32 : -32,
+    }),
+    center: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+    },
+    exit: (dir: number) => ({
+      opacity: 0,
+      x: dir > 0 ? -32 : 32,
+      transition: { duration: 0.2, ease: [0.7, 0, 0.84, 0] },
+    }),
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
-        return (
-          <ContactStep
-            data={contactData || undefined}
-            onSubmit={handleContactSubmit}
-          />
-        );
+        return <ContactStep data={contactData || undefined} onSubmit={handleContactSubmit} />;
       case 1:
-        return (
-          <ShippingStep
-            data={shippingData || undefined}
-            onSubmit={handleShippingSubmit}
-          />
-        );
+        return <ShippingStep data={shippingData || undefined} onSubmit={handleShippingSubmit} />;
       case 2:
-        return (
-          <PaymentStep
-            data={paymentData || undefined}
-            onSubmit={handlePaymentSubmit}
-          />
-        );
+        return <PaymentStep data={paymentData || undefined} onSubmit={handlePaymentSubmit} />;
       case 3:
         return (
-          contactData &&
-          shippingData &&
-          paymentData && (
+          contactData && shippingData && paymentData && (
             <>
               <OrderReview
                 contact={contactData}
@@ -201,10 +198,10 @@ const Checkout = () => {
                 payment={paymentData}
                 onAcceptTerms={setAcceptTerms}
               />
-              {/* Order Bump */}
               {orderBumps.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-border">
-                  <h3 className="font-display text-lg font-semibold text-foreground mb-4">
+                <div className="mt-6 pt-6 border-t border-[var(--glass-border)]">
+                  <h3 className="font-display text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gold inline-block" />
                     Adicione ao seu pedido
                   </h3>
                   {orderBumps.map((offer) => (
@@ -225,101 +222,130 @@ const Checkout = () => {
     }
   };
 
-  const handleStepSubmit = () => {
-    const form = document.querySelector("form");
-    if (form) {
-      const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-      if (submitButton) {
-        submitButton.click();
-      }
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-24 pb-20">
+    <div className="min-h-screen bg-[var(--bg-base)]">
+      {/* Aurora */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
+        <div
+          className="aurora-blob"
+          style={{ width: 400, height: 400, left: "5%", top: "15%", background: "var(--aurora-gold)", opacity: 0.5 }}
+        />
+        <div
+          className="aurora-blob"
+          style={{ width: 350, height: 350, right: "5%", bottom: "25%", background: "var(--aurora-amber)", animationDelay: "-4s", opacity: 0.4 }}
+        />
+      </div>
+
+      <main className="relative pt-28 pb-24">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <div className="max-w-7xl mx-auto mb-8">
             <Link
               to="/carrinho"
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-body"
+              className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-gold
+                transition-colors duration-200 font-body text-sm group"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
               Voltar ao carrinho
             </Link>
           </div>
 
-          {/* Auto-save indicator */}
-          <div className="max-w-7xl mx-auto mb-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
-              <Save className="w-3 h-3" />
-              <span>Salvando automaticamente...</span>
-            </div>
-          </div>
-
           <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
-            {/* Left Column - Steps */}
+            {/* Left Column */}
             <div className="lg:col-span-2">
-              <h1 className="font-display text-4xl font-bold text-foreground mb-8">
-                Checkout
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-8">
+                Finalizar Compra
               </h1>
 
               {/* Steps Indicator */}
               <CheckoutSteps currentStep={currentStep} steps={steps} />
 
               {/* Step Content */}
-              <div className="bg-card rounded-2xl border border-border p-6 md:p-8 mb-6">
-                {renderStepContent()}
+              <div className="glass rounded-2xl p-6 md:p-8 mb-6 overflow-hidden">
+                <AnimatePresence mode="wait" custom={direction}>
+                  <motion.div
+                    key={currentStep}
+                    custom={direction}
+                    variants={stepVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                  >
+                    {renderStepContent()}
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
-              {/* Mobile Order Summary (Above navigation buttons) */}
+              {/* Mobile Order Summary */}
               <div className="lg:hidden mb-6">
                 <OrderSummarySticky
-                  shipping={
-                    shippingData?.shippingMethod === "express" ? 15 : 10
-                  }
+                  shipping={shippingData?.shippingMethod === "express" ? 15 : 10}
                   orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
                 />
               </div>
 
               {/* Navigation Buttons */}
               <div className="flex items-center justify-between gap-4">
-                <Button variant="outline" onClick={handleBack}>
+                <button
+                  onClick={handleBack}
+                  className="group glass rounded-xl px-5 py-3 text-sm font-body font-medium
+                    text-muted-foreground border border-[var(--glass-border)]
+                    hover:border-gold/30 hover:text-foreground
+                    flex items-center gap-2
+                    transition-all duration-200"
+                >
+                  <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
                   {currentStep === 0 ? "Voltar" : "Anterior"}
-                </Button>
+                </button>
 
                 {currentStep < 3 ? (
-                  <Button variant="gold" onClick={handleStepSubmit}>
+                  <button
+                    onClick={handleStepSubmit}
+                    className="shine-effect group bg-gradient-gold text-[#080808]
+                      font-body font-bold py-3 px-6 rounded-xl text-sm tracking-wide
+                      flex items-center gap-2
+                      hover:-translate-y-0.5 hover:shadow-gold-md
+                      transition-all duration-250 ease-expo-out"
+                  >
                     Continuar
-                  </Button>
+                    <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </button>
                 ) : (
-                  <Button
-                    variant="gold"
-                    size="lg"
+                  <button
                     onClick={handleFinalSubmit}
                     disabled={!acceptTerms}
+                    className={cn(
+                      "shine-effect group bg-gradient-gold text-[#080808]",
+                      "font-body font-bold py-3 px-8 rounded-xl text-sm tracking-wide",
+                      "flex items-center gap-2",
+                      "hover:-translate-y-0.5 hover:shadow-gold-md",
+                      "transition-all duration-250 ease-expo-out",
+                      "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                    )}
                   >
+                    <ShieldCheck className="w-4 h-4" />
                     Confirmar Pedido
-                  </Button>
+                  </button>
                 )}
               </div>
+
+              {/* Security note */}
+              <p className="text-center text-xs text-muted-foreground/40 font-body mt-4 flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-3 h-3" />
+                Pagamento 100% seguro e criptografado
+              </p>
             </div>
 
-            {/* Right Column - Order Summary (Desktop) */}
-            <div className="lg:col-span-1">
+            {/* Right Column - Order Summary */}
+            <div className="hidden lg:block lg:col-span-1">
               <OrderSummarySticky
-                shipping={
-                  shippingData?.shippingMethod === "express" ? 15 : 10
-                }
+                shipping={shippingData?.shippingMethod === "express" ? 15 : 10}
                 orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
               />
             </div>
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

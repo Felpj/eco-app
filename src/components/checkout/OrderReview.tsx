@@ -5,6 +5,7 @@ import { ContactFormData } from "./ContactStep";
 import { ShippingFormData } from "./ShippingStep";
 import { PaymentFormData } from "./PaymentStep";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { Label } from "@/components/ui/label";
 
 interface OrderReviewProps {
@@ -56,7 +57,7 @@ export const OrderReview = ({
               className="flex items-center gap-4 p-3 bg-card rounded-lg border border-border"
             >
               <div className="w-16 h-16 rounded-lg overflow-hidden border border-border">
-                <img
+                <ProductImage
                   src={item.product.image}
                   alt={item.product.name}
                   className="w-full h-full object-cover"

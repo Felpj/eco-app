@@ -1,218 +1,163 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cart.store";
 import { formatMoney, calculateInstallment } from "@/lib/money";
-import { Input } from "@/components/ui/input";
 import { validateCoupon } from "@/data/mockCoupons";
 import { toast } from "@/hooks/use-toast";
-import { X, Check } from "lucide-react";
+import { X, Check, ShieldCheck, Truck, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CartSummaryProps {
   onCheckout?: () => void;
 }
 
 export const CartSummary = ({ onCheckout }: CartSummaryProps) => {
-  const {
-    items,
-    coupon,
-    getSubtotal,
-    getDiscountTotal,
-    getTotalPrice,
-    applyCoupon,
-    removeCoupon,
-  } = useCartStore();
+  const { items, coupon, getSubtotal, getDiscountTotal, getTotalPrice, applyCoupon, removeCoupon } =
+    useCartStore();
   const [couponCode, setCouponCode] = useState("");
   const [isApplying, setIsApplying] = useState(false);
 
   const subtotal = getSubtotal();
   const discount = getDiscountTotal();
-  const shipping = 0; // Placeholder: calcular no checkout
-  const total = getTotalPrice() + shipping;
+  const total = getTotalPrice();
   const installment = calculateInstallment(total);
 
   const handleApplyCoupon = () => {
     if (!couponCode.trim()) return;
-
     setIsApplying(true);
     const result = validateCoupon(couponCode, subtotal);
 
     if (result.valid && result.coupon) {
-      applyCoupon({
-        code: result.coupon.code,
-        discountType: result.coupon.discountType,
-        value: result.coupon.value,
-      });
-      toast({
-        title: "Cupom aplicado!",
-        description: result.coupon.description || "Desconto aplicado com sucesso.",
-      });
+      applyCoupon({ code: result.coupon.code, discountType: result.coupon.discountType, value: result.coupon.value });
+      toast({ title: "Cupom aplicado!", description: result.coupon.description || "Desconto aplicado com sucesso." });
       setCouponCode("");
     } else {
-      toast({
-        title: "Cupom inválido",
-        description: result.error || "Verifique o código e tente novamente.",
-        variant: "destructive",
-      });
+      toast({ title: "Cupom inválido", description: result.error || "Verifique o código e tente novamente.", variant: "destructive" });
     }
     setIsApplying(false);
   };
 
-  const handleRemoveCoupon = () => {
-    removeCoupon();
-    toast({
-      title: "Cupom removido",
-      description: "O cupom foi removido do seu pedido.",
-    });
-  };
-
   const handleCheckout = () => {
-    if (onCheckout) {
-      onCheckout();
-    } else {
-      window.location.href = "/checkout";
-    }
+    if (onCheckout) onCheckout();
+    else window.location.href = "/checkout";
   };
 
-  if (items.length === 0) {
-    return null;
-  }
+  if (items.length === 0) return null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+    <div className="glass rounded-2xl p-6 space-y-6 sticky top-28">
       <h2 className="font-display text-xl font-semibold text-foreground">
         Resumo do Pedido
       </h2>
 
-      {/* Subtotal */}
+      {/* Linhas de valor */}
       <div className="space-y-3">
-        <div className="flex justify-between text-foreground font-body">
-          <span>Subtotal</span>
-          <span className="font-semibold">{formatMoney(subtotal)}</span>
+        <div className="flex justify-between text-foreground font-body text-sm">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span>{formatMoney(subtotal)}</span>
         </div>
 
-        {/* Discount */}
         {coupon && discount > 0 && (
-          <div className="flex justify-between items-center text-primary font-body">
-            <div className="flex items-center gap-2">
-              <span>Desconto ({coupon.code})</span>
+          <div className="flex justify-between items-center font-body text-sm">
+            <div className="flex items-center gap-2 text-gold">
+              <span>Cupom ({coupon.code})</span>
               <button
-                onClick={handleRemoveCoupon}
-                className="text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => { removeCoupon(); }}
                 aria-label="Remover cupom"
+                className="text-muted-foreground hover:text-destructive transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <span className="font-semibold">-{formatMoney(discount)}</span>
+            <span className="text-gold font-semibold">-{formatMoney(discount)}</span>
           </div>
         )}
 
-        {/* Shipping Placeholder */}
         <div className="flex justify-between text-muted-foreground font-body text-sm">
           <span>Frete</span>
-          <span>Calcular no checkout</span>
+          <span className="text-xs">Calculado no checkout</span>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-border" />
+        <div className="h-px bg-gradient-to-r from-transparent via-[rgba(201,168,76,0.2)] to-transparent" />
 
-        {/* Total */}
-        <div className="flex justify-between">
-          <span className="text-foreground font-body font-semibold">
-            Total estimado
-          </span>
+        <div className="flex justify-between items-end">
+          <span className="text-foreground font-body font-semibold">Total</span>
           <div className="text-right">
-            <p className="text-foreground font-display text-2xl font-bold">
-              {formatMoney(total)}
-            </p>
-            <p className="text-muted-foreground text-xs font-body">
-              ou 12x de {formatMoney(installment)}
-            </p>
+            <p className="font-display text-2xl font-bold text-foreground">{formatMoney(total)}</p>
+            <p className="text-muted-foreground text-xs font-body">12x de {formatMoney(installment)}</p>
           </div>
         </div>
       </div>
 
-      {/* Cupom */}
+      {/* Campo cupom */}
       <div className="space-y-2">
-        <label className="text-sm font-body text-foreground">
+        <label className="text-xs text-muted-foreground font-body uppercase tracking-wider block">
           Cupom de desconto
         </label>
         {coupon ? (
-          <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-            <Check className="w-4 h-4 text-primary flex-shrink-0" />
+          <div className="flex items-center gap-3 glass-gold rounded-xl px-4 py-3">
+            <Check className="w-4 h-4 text-gold shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-body font-semibold text-foreground">
-                {coupon.code}
-              </p>
+              <p className="text-sm font-body font-semibold text-gold">{coupon.code}</p>
               <p className="text-xs text-muted-foreground font-body">
-                {coupon.discountType === "PERCENT"
-                  ? `${coupon.value}% de desconto`
-                  : `${formatMoney(coupon.value)} de desconto`}
+                {coupon.discountType === "PERCENT" ? `${coupon.value}% de desconto` : `${formatMoney(coupon.value)} de desconto`}
               </p>
             </div>
-            <button
-              onClick={handleRemoveCoupon}
-              className="text-muted-foreground hover:text-destructive transition-colors"
-              aria-label="Remover cupom"
-            >
+            <button onClick={removeCoupon} aria-label="Remover cupom" className="text-muted-foreground hover:text-destructive transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <div className="flex gap-2">
-            <Input
-              placeholder="Código do cupom"
-              className="bg-secondary border-border"
+            <input
+              type="text"
+              placeholder="CÓDIGO"
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleApplyCoupon();
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+              className="flex-1 glass rounded-xl px-4 py-2.5 text-sm font-body text-foreground
+                placeholder:text-muted-foreground/40
+                focus:border-[rgba(201,168,76,0.4)] focus:ring-2 focus:ring-gold/15 focus:outline-none
+                transition-all duration-200"
             />
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={handleApplyCoupon}
               disabled={isApplying || !couponCode.trim()}
+              className={cn(
+                "glass px-4 py-2.5 rounded-xl text-sm font-body font-medium",
+                "text-gold border border-gold/30 hover:bg-gold/8 hover:border-gold/50",
+                "transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed",
+              )}
             >
-              {isApplying ? "Aplicando..." : "Aplicar"}
-            </Button>
+              {isApplying ? "..." : "Aplicar"}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Checkout Button */}
-      <Button
-        variant="gold"
-        size="lg"
-        className="w-full"
+      {/* CTA finalizar */}
+      <button
         onClick={handleCheckout}
+        className="w-full shine-effect group bg-gradient-gold text-[#080808]
+          font-body font-bold py-4 rounded-xl text-sm tracking-wide
+          flex items-center justify-center gap-2
+          hover:-translate-y-0.5 hover:shadow-gold-md
+          transition-all duration-250 ease-expo-out"
       >
         Finalizar Compra
-      </Button>
+        <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+      </button>
 
-      {/* Trust Badges */}
-      <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-primary text-xs font-bold">✓</span>
+      {/* Selos de segurança */}
+      <div className="flex items-center justify-center gap-6 pt-2 border-t border-[var(--glass-border)]">
+        {[
+          { icon: ShieldCheck, label: "Compra segura" },
+          { icon: Truck,       label: "Envio rápido" },
+        ].map(({ icon: Icon, label }) => (
+          <div key={label} className="flex items-center gap-1.5 text-muted-foreground/60">
+            <Icon className="w-3.5 h-3.5" />
+            <span className="text-xs font-body">{label}</span>
           </div>
-          <span className="text-xs text-muted-foreground font-body">
-            Compra segura
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-primary text-xs font-bold">✓</span>
-          </div>
-          <span className="text-xs text-muted-foreground font-body">
-            Envio rápido
-          </span>
-        </div>
+        ))}
       </div>
     </div>
   );

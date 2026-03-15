@@ -8,7 +8,7 @@ export interface WhatsAppTemplate {
   phone?: string;
 }
 
-const WHATSAPP_NUMBER = "5511999999999"; // Substituir pelo número real
+const WHATSAPP_NUMBER = "5518996718769";
 
 export function generateWhatsAppLink(
   message: string,

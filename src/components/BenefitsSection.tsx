@@ -15,56 +15,96 @@ const benefits = [
   {
     icon: Wallet,
     title: "Custo-Benefício",
-    description: "Fragrâncias premium por uma fração do preço. Luxo acessível para todos.",
+    description: "Fragrâncias premium por uma fração do preço. Luxo genuíno e acessível.",
   },
   {
     icon: Truck,
     title: "Envio Rápido",
-    description: "Compras realizadas até 12h são enviadas no mesmo dia. Entrega expressa.",
+    description: "Compras até as 12h saem no mesmo dia. Entrega expressa para todo o Brasil.",
   },
 ];
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 32 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.1,
+      duration: 0.6,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  }),
+};
+
 const BenefitsSection = () => {
   return (
-    <section className="py-20 bg-card">
+    <section className="py-24 bg-[#0d0d0d] relative overflow-hidden">
+      {/* Linha ornamental de separação com seção anterior */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" aria-hidden="true" />
+
       <div className="container mx-auto px-4">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center mb-16"
         >
+          <div className="ornament-line mb-4">
+            <span className="text-gold/60 text-[10px] uppercase tracking-[0.3em] font-body px-3">
+              Diferenciais
+            </span>
+          </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Por que escolher nossos <span className="text-gradient-gold">perfumes</span>?
+            Por que escolher nossos{" "}
+            <span className="text-gradient-gold">perfumes</span>?
           </h2>
-          <p className="text-muted-foreground font-body max-w-2xl mx-auto">
+          <p className="text-muted-foreground font-body max-w-xl mx-auto leading-relaxed">
             Qualidade excepcional que você sente desde a primeira borrifada
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {benefits.map((benefit, index) => (
-            <motion.div
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {benefits.map((benefit, i) => (
+            <motion.article
               key={benefit.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="group relative bg-background rounded-2xl p-6 border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-gold"
+              custom={i}
+              variants={cardVariants}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-40px" }}
+              className="group glass rounded-2xl p-6 cursor-default
+                hover:-translate-y-1.5 hover:border-[rgba(201,168,76,0.2)]
+                hover:shadow-gold-sm transition-all duration-300 ease-expo-out"
             >
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                <benefit.icon className="w-7 h-7 text-primary" />
+              {/* Icon */}
+              <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/15
+                flex items-center justify-center mb-5
+                group-hover:bg-gold/15 group-hover:border-gold/25
+                transition-all duration-300">
+                <benefit.icon className="w-6 h-6 text-gold" />
               </div>
-              <h3 className="font-display text-xl font-semibold text-foreground mb-2">
+
+              <h3 className="font-display text-lg font-semibold text-foreground mb-2">
                 {benefit.title}
               </h3>
               <p className="text-muted-foreground font-body text-sm leading-relaxed">
                 {benefit.description}
               </p>
-            </motion.div>
+
+              {/* Linha decorativa inferior */}
+              <div className="mt-5 h-[1px] w-0 bg-gradient-to-r from-gold/40 to-transparent
+                group-hover:w-full transition-all duration-500 ease-expo-out" />
+            </motion.article>
           ))}
         </div>
       </div>
+
+      {/* Linha ornamental inferior */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" aria-hidden="true" />
     </section>
   );
 };

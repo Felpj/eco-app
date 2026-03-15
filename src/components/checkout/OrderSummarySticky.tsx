@@ -3,6 +3,7 @@ import { useCartStore } from "@/store/cart.store";
 import { formatMoney } from "@/lib/money";
 import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
@@ -49,7 +50,7 @@ export const OrderSummarySticky = ({
             {items.map((item) => (
               <div key={item.product.id} className="flex items-center gap-2 text-sm">
                 <div className="w-12 h-12 rounded-lg overflow-hidden border border-border flex-shrink-0">
-                  <img
+                  <ProductImage
                     src={item.product.image}
                     alt={item.product.name}
                     className="w-full h-full object-cover"
@@ -144,7 +145,7 @@ export const OrderSummarySticky = ({
               {items.map((item) => (
                 <div key={item.product.id} className="flex items-center gap-2 text-sm">
                   <div className="w-12 h-12 rounded-lg overflow-hidden border border-border flex-shrink-0">
-                    <img
+                    <ProductImage
                       src={item.product.image}
                       alt={item.product.name}
                       className="w-full h-full object-cover"

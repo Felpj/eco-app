@@ -1,8 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { ProductImage } from "@/components/ui/ProductImage";
 
 // Product images
 import productBlue from "@/assets/featured-product.jpg";
@@ -96,7 +95,6 @@ const products = [
 const ProductsPage = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       
       <main className="pt-24 pb-20">
         {/* Hero */}
@@ -132,8 +130,8 @@ const ProductsPage = () => {
                     <div className="group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-gold">
                       {/* Image */}
                       <div className="relative aspect-square bg-gradient-dark overflow-hidden">
-                        <img 
-                          src={product.image} 
+                        <ProductImage
+                          src={product.image}
                           alt={product.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
@@ -203,7 +201,6 @@ const ProductsPage = () => {
         </section>
       </main>
 
-      <Footer />
     </div>
   );
 };

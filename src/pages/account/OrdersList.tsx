@@ -1,16 +1,12 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Search, Package } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ArrowLeft, Search, Package, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useCustomerStore } from "@/store/customer.store";
 import { OrderStatus } from "@/types/account";
 import { formatMoney } from "@/lib/money";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const statusOptions: { value: OrderStatus | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -23,18 +19,12 @@ const statusOptions: { value: OrderStatus | "all"; label: string }[] = [
 
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
-    case "CONFIRMADO":
-      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    case "EM_SEPARACAO":
-      return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-    case "ENVIADO":
-      return "bg-purple-500/20 text-purple-400 border-purple-500/30";
-    case "ENTREGUE":
-      return "bg-green-500/20 text-green-400 border-green-500/30";
-    case "CANCELADO":
-      return "bg-red-500/20 text-red-400 border-red-500/30";
-    default:
-      return "bg-muted text-muted-foreground";
+    case "CONFIRMADO": return "bg-blue-500/15 text-blue-400 border-blue-500/25";
+    case "EM_SEPARACAO": return "bg-yellow-500/15 text-yellow-400 border-yellow-500/25";
+    case "ENVIADO": return "bg-purple-500/15 text-purple-400 border-purple-500/25";
+    case "ENTREGUE": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
+    case "CANCELADO": return "bg-red-500/15 text-red-400 border-red-500/25";
+    default: return "bg-[#111] text-muted-foreground border-[var(--glass-border)]";
   }
 };
 
@@ -45,69 +35,63 @@ const OrdersList = () => {
 
   const filteredOrders = useMemo(() => {
     let result = [...orders];
-
     if (search) {
-      const searchLower = search.toLowerCase();
+      const q = search.toLowerCase();
       result = result.filter(
-        (order) =>
-          order.orderCode.toLowerCase().includes(searchLower) ||
-          order.items.some((item) =>
-            item.name.toLowerCase().includes(searchLower)
-          )
+        (o) =>
+          o.orderCode.toLowerCase().includes(q) ||
+          o.items.some((item) => item.name.toLowerCase().includes(q))
       );
     }
-
     if (statusFilter !== "all") {
-      result = result.filter((order) => order.status === statusFilter);
+      result = result.filter((o) => o.status === statusFilter);
     }
-
-    return result.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [orders, search, statusFilter]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-4 max-w-6xl">
+    <div className="min-h-screen bg-[var(--bg-base)]">
+      <main className="pt-28 pb-24">
+        <div className="container mx-auto px-4 max-w-5xl">
           {/* Breadcrumb */}
           <Link
             to="/conta"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 font-body"
+            className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-gold
+              transition-colors duration-200 mb-8 font-body text-sm group"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
             Voltar para conta
           </Link>
 
-          <h1 className="font-display text-4xl font-bold text-foreground mb-8">
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-8">
             Meus Pedidos
           </h1>
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
+              <input
+                type="text"
                 placeholder="Buscar por código ou produto..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-secondary border-border"
+                className="w-full glass rounded-xl pl-10 pr-4 py-2.5 text-sm font-body text-foreground
+                  placeholder:text-muted-foreground/40
+                  focus:border-gold/30 focus:ring-2 focus:ring-gold/10 focus:outline-none
+                  transition-all duration-200"
               />
             </div>
             <Select
               value={statusFilter}
-              onValueChange={(value) =>
-                setStatusFilter(value as OrderStatus | "all")
-              }
+              onValueChange={(value) => setStatusFilter(value as OrderStatus | "all")}
             >
-              <SelectTrigger className="w-full sm:w-[200px] bg-secondary border-border">
+              <SelectTrigger className="w-full sm:w-[180px] glass rounded-xl border-[var(--glass-border)] text-sm font-body">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-card border-border">
+              <SelectContent className="glass rounded-xl border-[var(--glass-border)]">
                 {statusOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
+                  <SelectItem key={opt.value} value={opt.value} className="font-body text-sm">
                     {opt.label}
                   </SelectItem>
                 ))}
@@ -118,70 +102,69 @@ const OrdersList = () => {
           {/* Orders List */}
           {filteredOrders.length === 0 ? (
             <div className="text-center py-20">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-card border border-border flex items-center justify-center">
-                <Package className="w-12 h-12 text-muted-foreground" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl glass border border-[var(--glass-border)]
+                flex items-center justify-center">
+                <Package className="w-9 h-9 text-muted-foreground/30" />
               </div>
-              <h2 className="font-display text-2xl font-bold text-foreground mb-4">
-                {orders.length === 0
-                  ? "Você ainda não tem pedidos"
-                  : "Nenhum pedido encontrado"}
+              <h2 className="font-display text-2xl font-bold text-foreground mb-3">
+                {orders.length === 0 ? "Você ainda não tem pedidos" : "Nenhum pedido encontrado"}
               </h2>
-              <p className="text-muted-foreground font-body mb-8">
+              <p className="text-muted-foreground/60 font-body text-sm mb-8">
                 {orders.length === 0
                   ? "Que tal explorar nosso catálogo e fazer sua primeira compra?"
                   : "Tente ajustar os filtros de busca."}
               </p>
               {orders.length === 0 && (
-                <Button variant="gold" size="lg" asChild>
-                  <Link to="/catalogo">Ver Catálogo</Link>
-                </Button>
+                <Link
+                  to="/catalogo"
+                  className="inline-flex items-center gap-2 shine-effect bg-gradient-gold text-[#080808]
+                    font-body font-bold py-3 px-6 rounded-xl text-sm
+                    hover:-translate-y-0.5 hover:shadow-gold-md
+                    transition-all duration-250 ease-expo-out"
+                >
+                  Ver Catálogo
+                </Link>
               )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredOrders.map((order, index) => (
                 <motion.div
                   key={order.orderCode}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <Link to={`/conta/pedidos/${order.orderCode}`}>
-                    <div className="bg-card rounded-lg border border-border p-6 hover:border-primary/50 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-4 mb-2">
-                            <h3 className="font-display text-lg font-semibold text-foreground">
-                              {order.orderCode}
-                            </h3>
-                            <Badge
-                              className={`${getStatusColor(order.status)} font-body`}
-                            >
-                              {order.status.replace("_", " ")}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground font-body mb-2">
-                            {new Date(order.createdAt).toLocaleDateString("pt-BR", {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            })}
-                          </p>
-                          <p className="text-sm text-muted-foreground font-body">
-                            {order.items.length} item
-                            {order.items.length !== 1 ? "s" : ""}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-display text-2xl font-bold text-foreground">
-                            {formatMoney(order.total)}
-                          </p>
-                          <p className="text-sm text-muted-foreground font-body mt-1">
-                            Ver detalhes →
-                          </p>
-                        </div>
+                  <Link
+                    to={`/conta/pedidos/${order.orderCode}`}
+                    className="flex items-center gap-4 glass rounded-xl p-5 border border-[var(--glass-border)]
+                      hover:border-gold/25 transition-all duration-200 group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                        <h3 className="font-display font-semibold text-foreground text-sm group-hover:text-gold transition-colors">
+                          {order.orderCode}
+                        </h3>
+                        <span className={cn("text-[10px] font-body font-semibold px-2 py-0.5 rounded-full border", getStatusColor(order.status))}>
+                          {order.status.replace("_", " ")}
+                        </span>
                       </div>
+                      <p className="text-xs text-muted-foreground/50 font-body">
+                        {new Date(order.createdAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        {" · "}{order.items.length} item{order.items.length !== 1 ? "s" : ""}
+                      </p>
                     </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-display text-lg font-bold text-gold">
+                        {formatMoney(order.total)}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-gold/50
+                      transition-all duration-200 group-hover:translate-x-0.5 shrink-0" />
                   </Link>
                 </motion.div>
               ))}
@@ -189,7 +172,6 @@ const OrdersList = () => {
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

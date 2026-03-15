@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { Star, Eye, MessageCircle, Plus, Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Star, Eye, MessageCircle, Bell } from "lucide-react";
 import { Product } from "@/data/products";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { cn } from "@/lib/utils";
 import { AddToCartButton } from "@/components/commerce/AddToCartButton";
 
@@ -11,6 +11,19 @@ interface ProductCardProps {
   index?: number;
 }
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 24 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.06,
+      duration: 0.55,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  }),
+};
+
 const ProductCard = ({ product, onQuickView, index = 0 }: ProductCardProps) => {
   const isOutOfStock = product.availability === "out_of_stock";
   const isLowStock = product.stock > 0 && product.stock <= 5;
@@ -19,181 +32,188 @@ const ProductCard = ({ product, onQuickView, index = 0 }: ProductCardProps) => {
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
     const message = `Olá! Tenho interesse no perfume ${product.name} (${product.brand}) - R$ ${product.price_brl}`;
-    window.open(`https://wa.me/5511999999999?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="group"
+    <motion.article
+      custom={index}
+      variants={cardVariants}
+      initial="hidden"
+      animate="show"
+      className={cn("group", isOutOfStock && "opacity-60")}
     >
-      <div 
+      <div
         className={cn(
-          "bg-card rounded-2xl border border-border overflow-hidden transition-all duration-300",
-          "hover:border-primary/50 hover:shadow-gold cursor-pointer",
-          isOutOfStock && "opacity-75"
+          "glass rounded-2xl overflow-hidden cursor-pointer",
+          "transition-all duration-300 ease-expo-out",
+          "hover:-translate-y-1.5 hover:shadow-card-hover",
+          "hover:border-[rgba(255,255,255,0.12)]",
         )}
         onClick={() => onQuickView(product)}
       >
-        {/* Image Container */}
-        <div className="relative aspect-square bg-gradient-dark overflow-hidden">
-          <img
+        {/* ── Imagem ── */}
+        <div className="relative aspect-square bg-[#111] overflow-hidden">
+          <ProductImage
             src={product.image}
             alt={product.name}
+            loading="lazy"
+            width={400}
+            height={400}
             className={cn(
-              "w-full h-full object-cover transition-transform duration-500",
-              !isOutOfStock && "group-hover:scale-105"
+              "w-full h-full object-cover transition-transform duration-500 ease-expo-out",
+              !isOutOfStock && "group-hover:scale-[1.06]",
             )}
           />
-          
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
-            {product.is_best_seller && (
-              <span className="bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-body font-semibold">
-                Mais Vendido
-              </span>
-            )}
-            {product.is_new && (
-              <span className="bg-green-600 text-white px-2.5 py-1 rounded-full text-xs font-body font-semibold">
-                Novo
-              </span>
-            )}
-            {isLowStock && (
-              <span className="bg-orange-500 text-white px-2.5 py-1 rounded-full text-xs font-body font-semibold">
-                Estoque baixo
-              </span>
-            )}
-            {isOutOfStock && (
-              <span className="bg-destructive text-destructive-foreground px-2.5 py-1 rounded-full text-xs font-body font-semibold">
-                Esgotado
-              </span>
-            )}
-          </div>
 
-          {/* Quick View Button */}
-          <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Button
-              variant="gold"
-              size="sm"
-              className="gap-2"
+          {/* Quick view overlay */}
+          <div
+            className="absolute inset-0 bg-black/55 backdrop-blur-[2px]
+              opacity-0 group-hover:opacity-100 transition-opacity duration-300
+              flex flex-col items-center justify-center gap-3"
+          >
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickView(product);
               }}
+              className="inline-flex items-center gap-2 glass-gold rounded-xl
+                px-5 py-2.5 text-gold text-sm font-body font-medium
+                hover:bg-[rgba(201,168,76,0.12)] transition-colors"
             >
               <Eye className="w-4 h-4" />
-              Quick View
-            </Button>
+              Ver Detalhes
+            </button>
+          </div>
+
+          {/* Badges — top left */}
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+            {product.is_best_seller && (
+              <span className="bg-gradient-gold text-[#080808] px-2.5 py-1
+                rounded-full text-[10px] font-body font-bold tracking-wide">
+                Mais Vendido
+              </span>
+            )}
+            {product.is_new && (
+              <span className="bg-emerald-600/90 text-white px-2.5 py-1
+                rounded-full text-[10px] font-body font-bold tracking-wide">
+                Novo
+              </span>
+            )}
+            {isLowStock && (
+              <span className="bg-amber-500/90 text-white px-2.5 py-1
+                rounded-full text-[10px] font-body font-bold tracking-wide">
+                Últimas unidades
+              </span>
+            )}
+            {isOutOfStock && (
+              <span className="bg-destructive/90 text-white px-2.5 py-1
+                rounded-full text-[10px] font-body font-bold tracking-wide">
+                Esgotado
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-4">
-          {/* Rating */}
-          <div className="flex items-center gap-1 mb-2">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={cn(
-                  "w-3.5 h-3.5",
-                  i < Math.floor(product.rating)
-                    ? "fill-primary text-primary"
-                    : "text-muted"
-                )}
-              />
-            ))}
-            <span className="text-muted-foreground text-xs font-body ml-1">
-              ({product.reviews_count})
+        {/* ── Conteúdo ── */}
+        <div className="p-4 flex flex-col gap-2">
+          {/* Marca */}
+          <p className="text-[10px] text-muted-foreground font-body uppercase tracking-[0.2em]">
+            {product.brand}
+          </p>
+
+          {/* Nome */}
+          <h3 className="font-display text-base font-semibold text-foreground
+            group-hover:text-gold transition-colors duration-200 line-clamp-1">
+            {product.name}
+          </h3>
+
+          {/* Rating + tamanho */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={cn(
+                    "w-3 h-3",
+                    i < Math.floor(product.rating)
+                      ? "fill-gold text-gold"
+                      : "text-muted-foreground/30",
+                  )}
+                />
+              ))}
+              <span className="text-muted-foreground text-[10px] font-body ml-1">
+                ({product.reviews_count})
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-body">
+              {product.size_ml}ml
             </span>
           </div>
 
-          {/* Brand & Name */}
-          <p className="text-xs text-muted-foreground font-body uppercase tracking-wide mb-1">
-            {product.brand}
-          </p>
-          <h3 className="font-display text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-1">
-            {product.name}
-          </h3>
-          
-          {/* Size */}
-          <p className="text-xs text-muted-foreground font-body mb-2">
-            {product.size_ml}ml
-          </p>
-
-          {/* Inspired By Chip */}
+          {/* Chip "inspirado em" */}
           {product.inspired_by && (
-            <div className="mb-3">
-              <span className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs font-body">
-                Inspirado em {product.inspired_by}
-              </span>
-            </div>
+            <span className="inline-block glass rounded-lg px-2 py-1
+              text-[10px] text-muted-foreground font-body truncate max-w-full">
+              Inspirado em {product.inspired_by}
+            </span>
           )}
 
-          {/* Price */}
-          <div className="mb-3">
-            <span className="text-foreground font-display text-xl font-bold">
-              R$ {product.price_brl}
+          {/* Preço */}
+          <div className="pt-1">
+            <span className="font-display text-xl font-bold text-foreground">
+              R$&thinsp;{product.price_brl}
             </span>
-            <p className="text-xs text-muted-foreground font-body">
-              ou 12x de R$ {installment}
+            <p className="text-[10px] text-muted-foreground font-body">
+              12x de R$&thinsp;{installment}
             </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2">
+          {/* Ações */}
+          <div className="flex flex-col gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
             {isOutOfStock ? (
-              <Button
-                variant="goldOutline"
-                size="sm"
-                className="w-full gap-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Could open a modal for "notify me"
-                }}
-              >
+              <button className="w-full glass border border-[rgba(255,255,255,0.1)]
+                text-muted-foreground text-sm font-body py-2.5 rounded-xl
+                flex items-center justify-center gap-2
+                hover:text-gold hover:border-gold/30 transition-colors duration-200">
                 <Bell className="w-4 h-4" />
                 Avise-me
-              </Button>
+              </button>
             ) : (
               <>
-                <Button
-                  variant="gold"
-                  size="sm"
-                  className="w-full gap-2"
+                <button
                   onClick={handleWhatsApp}
+                  className="w-full bg-gradient-gold text-[#080808] text-sm
+                    font-body font-semibold py-2.5 rounded-xl
+                    flex items-center justify-center gap-2
+                    hover:-translate-y-0.5 hover:shadow-gold-sm
+                    transition-all duration-200 ease-expo-out shine-effect"
                 >
                   <MessageCircle className="w-4 h-4" />
                   Comprar no WhatsApp
-                </Button>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickView(product);
-                    }}
+                </button>
+                <div className="flex gap-2 min-w-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onQuickView(product); }}
+                    className="flex-1 min-w-0 glass text-muted-foreground text-sm font-body py-2
+                      rounded-xl hover:text-gold hover:border-gold/20
+                      transition-all duration-200 truncate"
                   >
                     Ver detalhes
-                  </Button>
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <AddToCartButton
-                      product={product}
-                      variant="secondary"
-                      size="icon"
-                      className="flex-shrink-0"
-                    />
-                  </div>
+                  </button>
+                  <AddToCartButton
+                    product={product}
+                    variant="secondary"
+                    size="icon"
+                    className="shrink-0 glass hover:border-gold/30 hover:text-gold"
+                  />
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   );
 };
 

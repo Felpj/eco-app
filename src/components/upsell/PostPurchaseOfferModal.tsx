@@ -8,6 +8,7 @@ import { useCartStore } from "@/store/cart.store";
 import { formatMoney } from "@/lib/money";
 import { trackUpsellEvent } from "@/lib/upsellTracking";
 import { products } from "@/data/products";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -133,7 +134,7 @@ export const PostPurchaseOfferModal = ({
           )}
 
           <div className="w-full h-48 rounded-lg overflow-hidden border border-border">
-            <img
+            <ProductImage
               src={product.image}
               alt={product.name}
               className="w-full h-full object-cover"

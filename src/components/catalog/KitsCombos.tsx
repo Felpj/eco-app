@@ -32,7 +32,7 @@ const kits = [
 const KitsCombos = () => {
   const handleWhatsApp = (kitTitle: string) => {
     const message = `Olá! Tenho interesse no ${kitTitle}. Pode me dar mais informações?`;
-    window.open(`https://wa.me/5511999999999?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   return (

@@ -6,6 +6,8 @@ import { useCartStore } from "@/store/cart.store";
 import { formatMoney } from "@/lib/money";
 import { trackUpsellEvent } from "@/lib/upsellTracking";
 import { products } from "@/data/products";
+import { ProductImage } from "@/components/ui/ProductImage";
+import { getEligibleOffers } from "@/data/upsellOffers";
 import { toast } from "@/hooks/use-toast";
 import { ShoppingCart } from "lucide-react";
 
@@ -82,7 +84,7 @@ export const UpsellShelf = ({ context, currentProductId }: UpsellShelfProps) => 
                 </Badge>
               )}
               <div className="w-full h-48 rounded-lg overflow-hidden border border-border mb-3">
-                <img
+                <ProductImage
                   src={product.image}
                   alt={product.name}
                   className="w-full h-full object-cover"

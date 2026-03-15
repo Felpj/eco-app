@@ -22,7 +22,7 @@ const benefits = [
 
 const CatalogHeader = () => {
   const handleWhatsApp = () => {
-    window.open("https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre os perfumes.", "_blank");
+    window.open("https://wa.me/5518996718769?text=Olá! Gostaria de saber mais sobre os perfumes.", "_blank");
   };
 
   return (
