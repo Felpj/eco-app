@@ -9,8 +9,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { session } = useAuthStore();
   const location = useLocation();
 
-  if (!session.isAuthenticated) {
-    return <Navigate to={`/entrar?next=${location.pathname}`} replace />;
+  // Sem accessToken válido → redireciona pro login com `from`/`next` preservados.
+  // Slice 4: token vem de auth.store (session.token); compat com sessão legada (sem token).
+  const hasAccess = session.isAuthenticated;
+
+  if (!hasAccess) {
+    const from = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/entrar?from=${from}&next=${from}`} replace />;
   }
 
   return <>{children}</>;

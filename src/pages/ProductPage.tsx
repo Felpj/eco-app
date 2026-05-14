@@ -1,18 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Star, Check, Truck, Shield, Minus, Plus, MessageCircle, ChevronDown } from "lucide-react";
+import { Star, Check, Truck, Shield, Minus, Plus, MessageCircle, ChevronDown, AlertCircle } from "lucide-react";
 import { AddToCartButton } from "@/components/commerce/AddToCartButton";
 import { ProductGallery } from "@/components/catalog/ProductGallery";
-import { getProductImages } from "@/data/productImages";
 import { UpsellShelf } from "@/components/upsell/UpsellShelf";
 import { ProductReviews } from "@/components/catalog/ProductReviews";
 import { InspirationBlock } from "@/components/catalog/InspirationBlock";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TestimonialsSection from "@/components/TestimonialsSection";
-import { getProductBySlug, getProductById, products } from "@/data/products";
-import { getScentNotes } from "@/data/productScentNotes";
-import { getProductDescription } from "@/data/productDescriptions";
+import { useProductBySlug } from "@/hooks/use-products";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { formatMoney, calculateInstallment } from "@/lib/money";
 
 const ProductPage = () => {
@@ -20,10 +19,52 @@ const ProductPage = () => {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
 
-  // Resolve por slug ou por id numérico (links antigos)
-  const param = slug ?? "";
-  const product =
-    getProductBySlug(param) ?? (/\d+/.test(param) ? getProductById(param) : undefined) ?? null;
+  const { data: product, loading, error, reload } = useProductBySlug(slug);
+
+  // SEO (precisa ser declarado antes de qualquer early return p/ não quebrar regras de hooks)
+  useEffect(() => {
+    if (!product) return;
+    document.title = `${product.name} — ${product.brand} | ESSENCE Árabe`;
+    return () => {
+      document.title = "ESSENCE Árabe — Perfumaria Árabe Autêntica";
+    };
+  }, [product]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)]">
+        <main className="pt-24 pb-20 container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20">
+            <Skeleton className="aspect-square w-full max-w-lg" />
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-14 w-full" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error && error.status !== 404) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)]">
+        <main className="pt-24 pb-20 container mx-auto px-4">
+          <div className="glass rounded-2xl p-8 flex flex-col items-center text-center gap-3 border border-destructive/30 max-w-md mx-auto">
+            <AlertCircle className="w-6 h-6 text-destructive" />
+            <p className="text-sm text-muted-foreground font-body">
+              Não foi possível carregar o produto. Tente recarregar.
+            </p>
+            <Button variant="outline" size="sm" onClick={reload}>
+              Tentar novamente
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!product) {
     navigate("/catalogo");
@@ -33,22 +74,16 @@ const ProductPage = () => {
   const isOutOfStock = product.availability === "out_of_stock";
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const installment = calculateInstallment(product.price_brl);
-  const notes = getScentNotes(product.slug);
-  const galleryImages = getProductImages(product.name, product.brand);
-  const description = getProductDescription(product.slug);
+  const notes = product.scentNotes;
+  // Galeria: usa images[] do backend se houver, senão cai pra image principal
+  const galleryImages =
+    product.images && product.images.length > 0 ? product.images : [product.image];
+  const description = product.description;
 
   const handleWhatsApp = () => {
     const message = `Olá! Tenho interesse no perfume ${product.name} (${product.brand}) - R$ ${product.price_brl}`;
     window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
-
-  // SEO
-  useEffect(() => {
-    document.title = `${product.name} — ${product.brand} | ESSENCE Árabe`;
-    return () => {
-      document.title = "ESSENCE Árabe — Perfumaria Árabe Autêntica";
-    };
-  }, [product.name, product.brand]);
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
@@ -177,24 +212,26 @@ const ProductPage = () => {
                 ))}
               </div>
 
-              {/* Notas olfativas */}
-              <div>
-                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.25em] font-body mb-3">
-                  Pirâmide Olfativa
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { layer: "Topo", notes: notes.top },
-                    { layer: "Coração", notes: notes.heart },
-                    { layer: "Fundo", notes: notes.base },
-                  ].map(({ layer, notes: n }) => (
-                    <div key={layer} className="glass rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground font-body uppercase tracking-wider">{layer}</p>
-                      <p className="text-sm text-gold font-body font-medium mt-1">{n.join(" · ")}</p>
-                    </div>
-                  ))}
+              {/* Notas olfativas — só se o backend devolver scentNotes */}
+              {notes && (notes.top.length || notes.heart.length || notes.base.length) ? (
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.25em] font-body mb-3">
+                    Pirâmide Olfativa
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { layer: "Topo", notes: notes.top },
+                      { layer: "Coração", notes: notes.heart },
+                      { layer: "Fundo", notes: notes.base },
+                    ].map(({ layer, notes: n }) => (
+                      <div key={layer} className="glass rounded-xl p-3 text-center">
+                        <p className="text-[10px] text-muted-foreground font-body uppercase tracking-wider">{layer}</p>
+                        <p className="text-sm text-gold font-body font-medium mt-1">{n.join(" · ")}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {/* Features */}
               <ul className="space-y-2">
@@ -213,20 +250,22 @@ const ProductPage = () => {
                 ))}
               </ul>
 
-              {/* Descrição expandível */}
-              <Collapsible defaultOpen={false}>
-                <CollapsibleTrigger className="w-full glass rounded-xl p-4 flex items-center justify-between
-                  hover:border-gold/20 transition-colors duration-200 data-[state=open]:border-gold/20
-                  [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180">
-                  <span className="text-sm font-body font-medium text-foreground">Descrição completa</span>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <p className="mt-3 text-muted-foreground text-editorial text-sm leading-relaxed">
-                    {description}
-                  </p>
-                </CollapsibleContent>
-              </Collapsible>
+              {/* Descrição expandível — só se houver descrição no backend */}
+              {description ? (
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger className="w-full glass rounded-xl p-4 flex items-center justify-between
+                    hover:border-gold/20 transition-colors duration-200 data-[state=open]:border-gold/20
+                    [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180">
+                    <span className="text-sm font-body font-medium text-foreground">Descrição completa</span>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <p className="mt-3 text-muted-foreground text-editorial text-sm leading-relaxed">
+                      {description}
+                    </p>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : null}
 
               {/* Preço */}
               <div className="glass rounded-2xl p-5 border border-[rgba(201,168,76,0.15)]">

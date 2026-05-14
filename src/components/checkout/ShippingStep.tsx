@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCEP, isValidCEP } from "@/lib/validators";
 import { Truck, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAddressByCep, ApiError } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 const shippingSchema = z.object({
   cep: z.string().refine(isValidCEP, "CEP inválido"),
@@ -70,25 +72,37 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
 
   const shippingMethod = watch("shippingMethod");
 
-  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCEP(e.target.value);
-    setValue("cep", formatted, { shouldValidate: true });
-  };
-
-  const handleSearchCEP = async () => {
-    const cep = watch("cep").replace(/\D/g, "");
+  const handleSearchCEP = async (rawCep?: string) => {
+    const cep = (rawCep ?? watch("cep") ?? "").replace(/\D/g, "");
     if (cep.length !== 8) return;
 
     setIsLoadingCEP(true);
-    // Simulação de busca de CEP (UI only)
-    setTimeout(() => {
-      // Mock data
-      setValue("address", "Rua Exemplo");
-      setValue("neighborhood", "Centro");
-      setValue("city", "São Paulo");
-      setValue("state", "SP");
+    try {
+      const addr = await getAddressByCep(cep);
+      setValue("address", addr.street || "", { shouldValidate: true });
+      setValue("neighborhood", addr.neighborhood || "", { shouldValidate: true });
+      setValue("city", addr.city || "", { shouldValidate: true });
+      setValue("state", (addr.state || "").toUpperCase(), { shouldValidate: true });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.status === 404
+            ? "CEP não encontrado"
+            : err.message
+          : "Não foi possível buscar o CEP.";
+      toast({ title: "CEP inválido", description: message, variant: "destructive" });
+    } finally {
       setIsLoadingCEP(false);
-    }, 1000);
+    }
+  };
+
+  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCEP(e.target.value);
+    setValue("cep", formatted, { shouldValidate: true });
+    const digits = formatted.replace(/\D/g, "");
+    if (digits.length === 8) {
+      void handleSearchCEP(digits);
+    }
   };
 
   return (
@@ -111,7 +125,7 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
           <Button
             type="button"
             variant="outline"
-            onClick={handleSearchCEP}
+            onClick={() => handleSearchCEP()}
             disabled={isLoadingCEP}
           >
             {isLoadingCEP ? "Buscando..." : "Buscar"}

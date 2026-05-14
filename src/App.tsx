@@ -26,6 +26,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { useAffiliateCapture } from "./hooks/use-affiliate-capture";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,8 @@ const pageTransition = {
 // ── Router com AnimatePresence ───────────────────────────────────────────────
 function AnimatedRoutes() {
   const location = useLocation();
+  // Slice 1: captura ?ref=CODE em qualquer rota → POST /affiliates/clicks
+  useAffiliateCapture();
 
   return (
     <AnimatePresence mode="wait">

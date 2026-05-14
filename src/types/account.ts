@@ -14,15 +14,26 @@ export interface CustomerProfile {
 export interface AuthSession {
   isAuthenticated: boolean;
   customerId?: string;
-  token?: string; // Futuro: JWT
+  token?: string; // accessToken (Bearer)
+  refreshToken?: string;
 }
 
-export type AddressLabel = "Casa" | "Trabalho" | "Outro";
+export type AddressLabel = "Casa" | "Trabalho" | "Outro" | string;
 
+/**
+ * Address — shape unificado front/backend.
+ * Mantém `addressLine1`/`addressLine2` legados pra compat com OrderDetails,
+ * mas reflete o shape do backend (street/number/complement) como source of truth.
+ */
 export interface Address {
   id: string;
   label: AddressLabel;
   cep: string;
+  // Backend canonical fields (Slice 4)
+  street?: string;
+  number?: string;
+  complement?: string;
+  // Legacy aliases (alguns componentes ainda usam) — derivados de street/number
   addressLine1: string;
   addressLine2?: string;
   neighborhood: string;
@@ -30,6 +41,10 @@ export interface Address {
   state: string;
   reference?: string;
   isDefault: boolean;
+  // Recipient overrides (opcionais no backend)
+  name?: string;
+  phone?: string;
+  document?: string;
 }
 
 export type OrderStatus =

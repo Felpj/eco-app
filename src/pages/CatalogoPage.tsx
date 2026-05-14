@@ -11,8 +11,10 @@ import { ProductGridSkeleton } from "@/components/catalog/ProductSkeleton";
 import EmptyState from "@/components/catalog/EmptyState";
 import KitsCombos from "@/components/catalog/KitsCombos";
 import CatalogFAQ from "@/components/catalog/CatalogFAQ";
-import { products, collections, Product } from "@/data/products";
-import { ArrowUpDown } from "lucide-react";
+import { collections, type Product } from "@/data/products";
+import { useProducts } from "@/hooks/use-products";
+import { ArrowUpDown, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -44,13 +46,13 @@ const CatalogoPage = () => {
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate loading
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+  // Fetch da listagem real. Pagina única generosa por enquanto (catálogo tem 31 itens).
+  // Filtros granulares (brand/audience/preço/etc) seguem em memória nesta slice
+  // pra preservar comportamento atual sem mexer no FilterSidebar.
+  const { data, loading, error, reload } = useProducts({ page: 1, limit: 100 });
+  const products = data?.items ?? [];
+  const isLoading = loading;
 
   // Handle collection change
   const handleCollectionChange = (collectionId: string | null) => {
@@ -224,7 +226,17 @@ const CatalogoPage = () => {
               </div>
 
               {/* Products Grid */}
-              {isLoading ? (
+              {error ? (
+                <div className="glass rounded-2xl p-8 flex flex-col items-center text-center gap-3 border border-destructive/30">
+                  <AlertCircle className="w-6 h-6 text-destructive" />
+                  <p className="text-sm text-muted-foreground font-body">
+                    Não foi possível carregar o catálogo. Tente recarregar.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={reload}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : isLoading ? (
                 <ProductGridSkeleton count={8} />
               ) : filteredProducts.length === 0 ? (
                 <EmptyState

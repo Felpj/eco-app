@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useCartStore } from "@/store/cart.store";
 import { formatMoney, calculateInstallment } from "@/lib/money";
-import { validateCoupon } from "@/data/mockCoupons";
+import { validateCoupon } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { X, Check, ShieldCheck, Truck, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,19 +22,45 @@ export const CartSummary = ({ onCheckout }: CartSummaryProps) => {
   const total = getTotalPrice();
   const installment = calculateInstallment(total);
 
-  const handleApplyCoupon = () => {
-    if (!couponCode.trim()) return;
-    setIsApplying(true);
-    const result = validateCoupon(couponCode, subtotal);
-
-    if (result.valid && result.coupon) {
-      applyCoupon({ code: result.coupon.code, discountType: result.coupon.discountType, value: result.coupon.value });
-      toast({ title: "Cupom aplicado!", description: result.coupon.description || "Desconto aplicado com sucesso." });
-      setCouponCode("");
-    } else {
-      toast({ title: "Cupom inválido", description: result.error || "Verifique o código e tente novamente.", variant: "destructive" });
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code) return;
+    if (subtotal <= 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Adicione itens antes de aplicar um cupom.",
+        variant: "destructive",
+      });
+      return;
     }
-    setIsApplying(false);
+    setIsApplying(true);
+    try {
+      const result = await validateCoupon(code, subtotal);
+      if (result.valid) {
+        applyCoupon({
+          code: code.toUpperCase(),
+          discountType: result.discountType,
+          value: result.discountValue,
+        });
+        toast({
+          title: "Cupom aplicado!",
+          description: `Desconto de ${formatMoney(result.discountAmount)}.`,
+        });
+        setCouponCode("");
+      } else {
+        toast({
+          title: "Cupom inválido",
+          description: result.message || "Verifique o código e tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Não foi possível validar o cupom.";
+      toast({ title: "Cupom inválido", description: message, variant: "destructive" });
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleCheckout = () => {

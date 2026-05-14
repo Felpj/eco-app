@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuthStore } from "@/store/auth.store";
 import { isValidEmail, isValidPhone, formatPhone } from "@/lib/validators";
+import { signupCustomer, ApiError } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 const signupSchema = z
   .object({
     fullName: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-    whatsapp: z.string().refine(isValidPhone, "WhatsApp inválido"),
-    email: z.string().optional(),
+    whatsapp: z.string().optional().default(""),
+    email: z.string().optional().default(""),
     password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
     confirmPassword: z.string(),
     receiveWhatsAppUpdates: z.boolean().default(true),
@@ -23,7 +24,19 @@ const signupSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não coincidem",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) => {
+      const hasEmail = !!data.email && isValidEmail(data.email);
+      const hasPhone =
+        !!data.whatsapp && isValidPhone(data.whatsapp.replace(/\D/g, ""));
+      return hasEmail || hasPhone;
+    },
+    {
+      message: "Informe um email ou WhatsApp válido",
+      path: ["whatsapp"],
+    },
+  );
 
 type SignupFormData = z.infer<typeof signupSchema>;
 
@@ -54,19 +67,30 @@ export const SignupForm = () => {
 
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
+    try {
+      const cleanWhatsapp = data.whatsapp?.replace(/\D/g, "") || "";
+      const cleanEmail = data.email?.trim() || "";
 
-    // Mock signup
-    setTimeout(() => {
-      const profile = {
-        id: `customer-${Date.now()}`,
+      const res = await signupCustomer({
         fullName: data.fullName,
-        email: data.email || undefined,
-        whatsapp: formatPhone(data.whatsapp.replace(/\D/g, "")),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        email: cleanEmail || undefined,
+        whatsapp: cleanWhatsapp || undefined,
+        password: data.password,
+        type: "CUSTOMER",
+      });
 
-      login(profile);
+      login({
+        profile: {
+          id: res.user.id,
+          fullName: res.user.fullName,
+          email: res.user.email ?? undefined,
+          whatsapp: res.user.whatsapp ?? cleanWhatsapp,
+          createdAt: res.user.createdAt,
+          updatedAt: res.user.createdAt,
+        },
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
 
       toast({
         title: "Conta criada!",
@@ -74,8 +98,22 @@ export const SignupForm = () => {
       });
 
       navigate("/conta");
+    } catch (err) {
+      const status = err instanceof ApiError ? err.status : 0;
+      const description =
+        status === 409
+          ? "Já existe conta com esse contato."
+          : err instanceof Error
+            ? err.message
+            : "Não foi possível criar conta agora.";
+      toast({
+        title: "Erro ao criar conta",
+        description,
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -99,7 +137,7 @@ export const SignupForm = () => {
 
       <div>
         <Label htmlFor="whatsapp" className="text-foreground font-body">
-          WhatsApp *
+          WhatsApp
         </Label>
         <Input
           id="whatsapp"
@@ -119,7 +157,7 @@ export const SignupForm = () => {
 
       <div>
         <Label htmlFor="email" className="text-foreground font-body">
-          Email (opcional)
+          Email
         </Label>
         <Input
           id="email"
@@ -128,6 +166,9 @@ export const SignupForm = () => {
           className="mt-2 bg-secondary border-border"
           placeholder="seu@email.com"
         />
+        <p className="mt-1 text-xs text-muted-foreground font-body">
+          Informe email ou WhatsApp (pelo menos um).
+        </p>
         {errors.email && (
           <p className="mt-1 text-sm text-destructive font-body">
             {errors.email.message}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth.store";
-import { isValidEmail, isValidPhone, formatPhone } from "@/lib/validators";
+import { loginCustomer, ApiError } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
@@ -33,57 +33,55 @@ export const LoginForm = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
+    try {
+      // Normaliza identifier: se parecer telefone, manda só os dígitos
+      const rawId = data.identifier.trim();
+      const looksLikeEmail = rawId.includes("@");
+      const identifier = looksLikeEmail ? rawId : rawId.replace(/\D/g, "") || rawId;
 
-    // Mock login - no MVP, qualquer credencial funciona
-    setTimeout(() => {
-      const isEmail = isValidEmail(data.identifier);
-      const isPhone = isValidPhone(data.identifier.replace(/\D/g, ""));
+      const res = await loginCustomer({ identifier, password: data.password });
 
-      if (!isEmail && !isPhone) {
-        toast({
-          title: "Credencial inválida",
-          description: "Use um email ou WhatsApp válido.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Criar perfil mock
-      const profile = {
-        id: `customer-${Date.now()}`,
-        fullName: "Cliente",
-        email: isEmail ? data.identifier : undefined,
-        whatsapp: isPhone
-          ? formatPhone(data.identifier.replace(/\D/g, ""))
-          : "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      login(profile);
+      login({
+        profile: {
+          id: res.user.id,
+          fullName: res.user.fullName,
+          email: res.user.email ?? undefined,
+          whatsapp: res.user.whatsapp ?? "",
+          createdAt: res.user.createdAt,
+          updatedAt: res.user.createdAt,
+        },
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
 
       toast({
         title: "Login realizado!",
-        description: "No MVP, o acesso é simplificado.",
+        description: `Bem-vindo de volta${res.user.fullName ? `, ${res.user.fullName.split(" ")[0]}` : ""}.`,
       });
 
-      const next = searchParams.get("next") || "/conta";
+      const next =
+        searchParams.get("next") || searchParams.get("from") || "/conta";
       navigate(next);
+    } catch (err) {
+      const status = err instanceof ApiError ? err.status : 0;
+      const description =
+        status === 401
+          ? "Credenciais inválidas."
+          : err instanceof Error
+            ? err.message
+            : "Não foi possível entrar agora.";
+      toast({
+        title: "Erro ao entrar",
+        description,
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Info message */}
-      <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
-        <p className="text-xs text-foreground font-body">
-          <strong>MVP:</strong> No MVP, o acesso é simplificado. Use qualquer
-          email ou WhatsApp válido.
-        </p>
-      </div>
-
       <div>
         <Label htmlFor="identifier" className="text-foreground font-body">
           WhatsApp ou Email *

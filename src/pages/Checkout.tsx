@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -14,6 +14,18 @@ import { useCartStore } from "@/store/cart.store";
 import { useCheckoutDraft } from "@/hooks/use-checkout-draft";
 import { getEligibleOffers } from "@/data/upsellOffers";
 import { cn } from "@/lib/utils";
+import {
+  ApiError,
+  createOrder,
+  quoteShipping,
+  validateOrderStock,
+  type CreateOrderPayload,
+  type PaymentMethod,
+  type ShippingMethodId,
+  type ShippingQuoteOption,
+} from "@/lib/api";
+import { getAffiliateSessionId } from "@/lib/affiliate-tracking";
+import { toast } from "@/hooks/use-toast";
 
 const steps = [
   { id: "contact", label: "Contato", number: 1 },
@@ -69,12 +81,76 @@ const Checkout = () => {
   );
   const [acceptTerms, setAcceptTerms] = useState(draft?.acceptTerms || false);
 
+  // Slice 2: estado para shipping quote, validações e submit
+  const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[] | null>(null);
+  const [isQuotingShipping, setIsQuotingShipping] = useState(false);
+  const [stockErrors, setStockErrors] = useState<
+    { productId: string; reason: string }[] | null
+  >(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Idempotency-Key gerado 1× no mount; reusado em retries.
+  // Reset acontece via mudança de chave (key na rota) ou unmount (volta pra cart).
+  const idempotencyKeyRef = useRef<string>("");
+  if (!idempotencyKeyRef.current) {
+    idempotencyKeyRef.current =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  // Items canonicos (productId + qty) — referência estável p/ effects
+  const orderItems = useMemo(
+    () => items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+    [items],
+  );
+  const orderItemsKey = useMemo(
+    () => orderItems.map((i) => `${i.productId}:${i.quantity}`).join("|"),
+    [orderItems],
+  );
+
   // Redirect empty cart in useEffect (never during render — causes "Cannot update component while rendering")
   useEffect(() => {
     if (items.length === 0) {
       navigate("/carrinho");
     }
   }, [items.length, navigate]);
+
+  // Slice 2: quote de frete sempre que mudar CEP ou itens
+  const cep = shippingData?.cep?.replace(/\D/g, "") ?? "";
+  useEffect(() => {
+    if (cep.length !== 8 || orderItems.length === 0) {
+      setShippingQuotes(null);
+      return;
+    }
+    let cancelled = false;
+    setIsQuotingShipping(true);
+    quoteShipping({ cep, items: orderItems })
+      .then((res) => {
+        if (!cancelled) setShippingQuotes(res.options);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message =
+          err instanceof ApiError ? err.message : "Não foi possível calcular o frete.";
+        toast({ title: "Frete", description: message, variant: "destructive" });
+        setShippingQuotes(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsQuotingShipping(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cep, orderItemsKey, orderItems]);
+
+  // Frete atualmente escolhido (id derivado do shippingData)
+  const chosenShippingId: ShippingMethodId =
+    shippingData?.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD";
+  const chosenShippingPrice =
+    shippingQuotes?.find((o) => o.id === chosenShippingId)?.price ??
+    (shippingData?.shippingMethod === "express" ? 15 : 10);
 
   const handleContactSubmit = (data: ContactFormData) => {
     setContactData(data);
@@ -128,7 +204,7 @@ const Checkout = () => {
     }
   }, [contactData, shippingData, paymentData, acceptTerms, updateDraft]);
 
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
     if (!acceptTerms) {
       const termsCheckbox = document.getElementById("accept-terms");
       if (termsCheckbox) {
@@ -137,11 +213,87 @@ const Checkout = () => {
       }
       return;
     }
+    if (!contactData || !shippingData || !paymentData) return;
+    if (isSubmitting) return;
 
-    const orderId = `EA-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(Date.now()).slice(-4)}`;
-    clearCart();
-    clearDraft();
-    navigate(`/pedido/${orderId}`);
+    setSubmitError(null);
+    setStockErrors(null);
+    setIsSubmitting(true);
+
+    try {
+      // 1. validate stock antes de criar order
+      const stock = await validateOrderStock({ items: orderItems });
+      if (!stock.valid) {
+        setStockErrors(stock.errors);
+        toast({
+          title: "Itens indisponíveis",
+          description: "Alguns itens do carrinho não estão disponíveis.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const couponCode = useCartStore.getState().coupon?.code;
+
+      const payload: CreateOrderPayload = {
+        contact: {
+          fullName: contactData.name,
+          whatsapp: contactData.phone,
+          email: contactData.email || undefined,
+          wantsWhatsAppUpdates: contactData.wantsWhatsAppUpdates || false,
+        },
+        delivery: {
+          cep: shippingData.cep.replace(/\D/g, ""),
+          street: shippingData.address,
+          number: shippingData.number,
+          complement: shippingData.complement || undefined,
+          neighborhood: shippingData.neighborhood,
+          city: shippingData.city,
+          state: shippingData.state.toUpperCase(),
+          shippingMethodId:
+            shippingData.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD",
+        },
+        payment: {
+          method: (paymentData.method.toUpperCase() as PaymentMethod) ?? "PIX",
+        },
+        items: orderItems,
+        couponCode: couponCode || undefined,
+      };
+
+      const affiliateSessionId = getAffiliateSessionId();
+      const order = await createOrder(
+        payload,
+        idempotencyKeyRef.current,
+        affiliateSessionId,
+      );
+
+      clearCart();
+      clearDraft();
+      navigate(`/pedido/${order.orderCode}`);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // 400 com errors de stock detalhados
+        const body = err.body as { errors?: { productId: string; reason: string }[] } | null;
+        if (err.status === 400 && body?.errors?.length) {
+          setStockErrors(body.errors);
+        }
+        const msg =
+          err.status === 409
+            ? "Pedido já em processamento. Aguarde alguns instantes."
+            : err.status === 422
+              ? err.message || "Não foi possível processar o pedido."
+              : err.message || "Erro ao criar pedido.";
+        setSubmitError(msg);
+        toast({ title: "Erro no pedido", description: msg, variant: "destructive" });
+      } else {
+        const msg = (err as Error)?.message || "Erro inesperado.";
+        setSubmitError(msg);
+        toast({ title: "Erro no pedido", description: msg, variant: "destructive" });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -279,7 +431,7 @@ const Checkout = () => {
               {/* Mobile Order Summary */}
               <div className="lg:hidden mb-6">
                 <OrderSummarySticky
-                  shipping={shippingData?.shippingMethod === "express" ? 15 : 10}
+                  shipping={chosenShippingPrice}
                   orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
                 />
               </div>
@@ -313,7 +465,7 @@ const Checkout = () => {
                 ) : (
                   <button
                     onClick={handleFinalSubmit}
-                    disabled={!acceptTerms}
+                    disabled={!acceptTerms || isSubmitting}
                     className={cn(
                       "shine-effect group bg-gradient-gold text-[#080808]",
                       "font-body font-bold py-3 px-8 rounded-xl text-sm tracking-wide",
@@ -324,10 +476,32 @@ const Checkout = () => {
                     )}
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    Confirmar Pedido
+                    {isSubmitting ? "Processando..." : "Confirmar Pedido"}
                   </button>
                 )}
               </div>
+
+              {/* Stock / submit errors */}
+              {stockErrors && stockErrors.length > 0 && (
+                <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-body text-destructive">
+                  <p className="font-semibold mb-1">Itens indisponíveis:</p>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {stockErrors.map((e) => {
+                      const it = items.find((x) => x.product.id === e.productId);
+                      return (
+                        <li key={e.productId}>
+                          {it ? it.product.name : e.productId} — {e.reason}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              {submitError && !stockErrors && (
+                <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-body text-destructive">
+                  {submitError}
+                </div>
+              )}
 
               {/* Security note */}
               <p className="text-center text-xs text-muted-foreground/40 font-body mt-4 flex items-center justify-center gap-1.5">
@@ -339,9 +513,14 @@ const Checkout = () => {
             {/* Right Column - Order Summary */}
             <div className="hidden lg:block lg:col-span-1">
               <OrderSummarySticky
-                shipping={shippingData?.shippingMethod === "express" ? 15 : 10}
+                shipping={chosenShippingPrice}
                 orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
               />
+              {isQuotingShipping && (
+                <p className="mt-2 text-xs text-muted-foreground/60 font-body text-center">
+                  Calculando frete...
+                </p>
+              )}
             </div>
           </div>
         </div>

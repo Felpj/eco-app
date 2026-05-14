@@ -1,24 +1,66 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Package, MapPin, Ticket, Users, Settings, ChevronRight } from "lucide-react";
-import { useAuthStore } from "@/store/auth.store";
-import { useNavigate } from "react-router-dom";
-import { useCustomerStore } from "@/store/customer.store";
 import { motion } from "framer-motion";
+import { useAuthStore } from "@/store/auth.store";
+import {
+  getCustomerMe,
+  getMyOrders,
+  type CustomerMe,
+  type OrdersListItem,
+} from "@/lib/api";
+import { handleAuthError } from "@/lib/auth-guard";
 import { formatMoney } from "@/lib/money";
 
 const AccountHome = () => {
   const navigate = useNavigate();
-  const { profile, logout } = useAuthStore();
-  const { orders } = useCustomerStore();
+  const location = useLocation();
+  const { profile, logout, updateProfile } = useAuthStore();
+
+  const [me, setMe] = useState<CustomerMe | null>(null);
+  const [recentOrders, setRecentOrders] = useState<OrdersListItem[]>([]);
+  const [totalOrders, setTotalOrders] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([getCustomerMe(), getMyOrders({ page: 1, limit: 5 })])
+      .then(([meRes, ordersRes]) => {
+        if (!active) return;
+        setMe(meRes);
+        // Sincroniza profile no store com dados reais do backend
+        updateProfile({
+          fullName: meRes.fullName,
+          email: meRes.email ?? undefined,
+          whatsapp: meRes.whatsapp ?? "",
+        });
+        setRecentOrders(ordersRes.data.slice(0, 5));
+        setTotalOrders(ordersRes.meta.total);
+      })
+      .catch((err) => {
+        if (!handleAuthError(err, navigate, location.pathname)) {
+          // Mantém UI usável com dados do store mesmo se a API falhar
+          console.error("[AccountHome] load failed", err);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate("/");
-    window.location.reload();
   };
 
-  const recentOrders = orders.slice(0, 3);
-  const totalOrders = orders.length;
+  const displayName =
+    me?.fullName || profile?.fullName || "Cliente";
+  const firstName = displayName.split(" ")[0];
 
   const menuItems = [
     {
@@ -35,13 +77,13 @@ const AccountHome = () => {
     },
     {
       title: "Cupons",
-      description: "Cupons disponíveis",
+      description: "Em breve",
       icon: Ticket,
       href: "/conta/cupons",
     },
     {
       title: "Indicações",
-      description: "Indique e ganhe",
+      description: "Em breve",
       icon: Users,
       href: "/conta/indicacoes",
     },
@@ -60,18 +102,29 @@ const AccountHome = () => {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+    },
   };
-
-  const firstName = profile?.fullName?.split(" ")[0] || "Cliente";
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
-      {/* Aurora */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
+      <div
+        className="fixed inset-0 pointer-events-none overflow-hidden"
+        aria-hidden
+      >
         <div
           className="aurora-blob"
-          style={{ width: 400, height: 400, right: "10%", top: "15%", background: "var(--aurora-gold)", opacity: 0.5 }}
+          style={{
+            width: 400,
+            height: 400,
+            right: "10%",
+            top: "15%",
+            background: "var(--aurora-gold)",
+            opacity: 0.5,
+          }}
         />
       </div>
 
@@ -82,10 +135,14 @@ const AccountHome = () => {
             initial="hidden"
             animate="visible"
           >
-            {/* Header */}
-            <motion.div variants={itemVariants} className="flex items-start justify-between mb-10">
+            <motion.div
+              variants={itemVariants}
+              className="flex items-start justify-between mb-10"
+            >
               <div>
-                <p className="text-muted-foreground/60 font-body text-sm mb-1">Bem-vindo de volta</p>
+                <p className="text-muted-foreground/60 font-body text-sm mb-1">
+                  Bem-vindo de volta
+                </p>
                 <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground">
                   Olá, {firstName}!
                 </h1>
@@ -104,12 +161,12 @@ const AccountHome = () => {
             </motion.div>
 
             {/* Recent Orders */}
-            {recentOrders.length > 0 && (
-              <motion.div variants={itemVariants} className="mb-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display text-xl font-semibold text-foreground">
-                    Pedidos Recentes
-                  </h2>
+            <motion.div variants={itemVariants} className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-xl font-semibold text-foreground">
+                  Pedidos Recentes
+                </h2>
+                {recentOrders.length > 0 && (
                   <Link
                     to="/conta/pedidos"
                     className="text-sm text-gold/70 hover:text-gold font-body transition-colors flex items-center gap-1"
@@ -117,14 +174,38 @@ const AccountHome = () => {
                     Ver todos
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
-                </div>
+                )}
+              </div>
+
+              {loading ? (
                 <div className="grid md:grid-cols-3 gap-4">
-                  {recentOrders.map((order, index) => (
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="glass rounded-xl p-5 border border-[var(--glass-border)] animate-pulse h-24"
+                    />
+                  ))}
+                </div>
+              ) : recentOrders.length === 0 ? (
+                <div className="glass rounded-xl p-6 border border-[var(--glass-border)] text-sm font-body text-muted-foreground/70">
+                  Você ainda não fez nenhum pedido.{" "}
+                  <Link to="/catalogo" className="text-gold hover:underline">
+                    Conheça o catálogo
+                  </Link>
+                  .
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-4">
+                  {recentOrders.slice(0, 3).map((order, index) => (
                     <motion.div
                       key={order.orderCode}
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 + index * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{
+                        delay: 0.2 + index * 0.08,
+                        duration: 0.4,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
                     >
                       <Link
                         to={`/conta/pedidos/${order.orderCode}`}
@@ -142,17 +223,16 @@ const AccountHome = () => {
                             {order.status.replace("_", " ")}
                           </span>
                           <span className="font-display font-bold text-gold text-sm">
-                            {formatMoney(order.total)}
+                            {formatMoney(Number(order.total))}
                           </span>
                         </div>
                       </Link>
                     </motion.div>
                   ))}
                 </div>
-              </motion.div>
-            )}
+              )}
+            </motion.div>
 
-            {/* Menu Cards */}
             <motion.div variants={itemVariants}>
               <h2 className="font-display text-xl font-semibold text-foreground mb-4">
                 Minha Conta
@@ -165,7 +245,11 @@ const AccountHome = () => {
                       key={item.href}
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 + index * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{
+                        delay: 0.3 + index * 0.06,
+                        duration: 0.4,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
                     >
                       <Link
                         to={item.href}
