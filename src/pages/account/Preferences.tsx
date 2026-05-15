@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Lock } from "lucide-react";
+import { ArrowLeft, Save, Lock, CheckCircle2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import {
   getCustomerMe,
   updateCustomerMe,
+  changePassword,
+  ApiError,
   type CustomerMe,
 } from "@/lib/api";
 import { handleAuthError } from "@/lib/auth-guard";
@@ -43,6 +45,14 @@ const Preferences = () => {
   const [receiveWhatsAppUpdates, setReceiveWhatsAppUpdates] = useState(true);
   const [receiveEmailUpdates, setReceiveEmailUpdates] = useState(false);
   const [favoriteCategories, setFavoriteCategories] = useState<string[]>([]);
+
+  // Password change
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -143,6 +153,62 @@ const Preferences = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword) {
+      setPasswordError("Informe sua senha atual.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("A nova senha deve ter ao menos 8 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("A confirmação não bate com a nova senha.");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await changePassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(
+        `Senha alterada. Outros dispositivos foram desconectados (${res.revokedSessions} sessões revogadas).`,
+      );
+      toast({
+        title: "Senha alterada!",
+        description: `Outros dispositivos foram desconectados (${res.revokedSessions} sessões revogadas).`,
+      });
+    } catch (err) {
+      if (handleAuthError(err, navigate, location.pathname)) return;
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setPasswordError("Senha atual incorreta.");
+        } else if (err.status === 400) {
+          const body = err.body as { message?: string | string[] } | null;
+          const msg = Array.isArray(body?.message)
+            ? body?.message.join(" ")
+            : body?.message;
+          setPasswordError(
+            msg || "Não foi possível alterar a senha. Tente novamente.",
+          );
+        } else {
+          setPasswordError(
+            "Não foi possível alterar a senha. Tente novamente.",
+          );
+        }
+      } else {
+        setPasswordError("Não foi possível alterar a senha. Tente novamente.");
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
       <main className="pt-28 pb-24">
@@ -223,21 +289,92 @@ const Preferences = () => {
                 </div>
               </div>
 
-              {/* Senha — em breve */}
+              {/* Segurança — trocar senha */}
               <div>
-                <h2 className="font-display text-lg font-semibold text-foreground mb-3">
+                <p className="text-xs text-muted-foreground/60 font-body uppercase tracking-[0.18em] mb-2">
                   Segurança
+                </p>
+                <h2 className="font-display text-lg font-semibold text-foreground mb-5 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-gold/70" />
+                  Trocar senha
                 </h2>
-                <div className="glass rounded-xl p-4 border border-[var(--glass-border)] flex items-start gap-3">
-                  <Lock className="w-5 h-5 text-muted-foreground/50 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-body text-foreground/80 font-semibold">
-                      Trocar senha — Em breve
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 font-body mt-1">
-                      A troca de senha pela conta ainda não está disponível.
-                      Precisa redefinir? Fale com a gente pelo WhatsApp.
-                    </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">
+                      Senha atual
+                    </Label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      autoComplete="current-password"
+                      className="w-full glass rounded-xl px-4 py-2.5 mt-1.5 text-sm font-body text-foreground
+                        focus:border-gold/30 focus:ring-2 focus:ring-gold/10 focus:outline-none
+                        transition-all duration-200"
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">
+                        Nova senha
+                      </Label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                        minLength={8}
+                        placeholder="Mínimo 8 caracteres"
+                        className="w-full glass rounded-xl px-4 py-2.5 mt-1.5 text-sm font-body text-foreground
+                          placeholder:text-muted-foreground/40
+                          focus:border-gold/30 focus:ring-2 focus:ring-gold/10 focus:outline-none
+                          transition-all duration-200"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground font-body uppercase tracking-wider">
+                        Confirmar nova senha
+                      </Label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                        className="w-full glass rounded-xl px-4 py-2.5 mt-1.5 text-sm font-body text-foreground
+                          placeholder:text-muted-foreground/40
+                          focus:border-gold/30 focus:ring-2 focus:ring-gold/10 focus:outline-none
+                          transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+
+                  {passwordError && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-body text-red-300">
+                      {passwordError}
+                    </div>
+                  )}
+                  {passwordSuccess && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs font-body text-emerald-300 flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{passwordSuccess}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleChangePassword}
+                      disabled={changingPassword}
+                      className="shine-effect flex items-center gap-2 bg-gradient-gold text-[#080808]
+                        font-body font-bold py-2.5 px-5 rounded-xl text-sm
+                        hover:-translate-y-0.5 hover:shadow-gold-md
+                        transition-all duration-250 ease-expo-out
+                        disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                    >
+                      <Lock className="w-4 h-4" />
+                      {changingPassword ? "Salvando..." : "Salvar nova senha"}
+                    </button>
                   </div>
                 </div>
               </div>

@@ -593,6 +593,19 @@ export async function updateCustomerMe(
   });
 }
 
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ success: true; revokedSessions: number }> {
+  return apiFetch<{ success: true; revokedSessions: number }>(
+    `/customers/me/password`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 // ───────────────────────────────────────────────────────────
 // Customer addresses (Slice 4)
 // ───────────────────────────────────────────────────────────
