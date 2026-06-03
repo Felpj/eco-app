@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { useMouseTilt } from "@/hooks/useMouseTilt";
 import {
@@ -23,6 +24,17 @@ export function ProductGallery({ images, alt, overlay }: ProductGalleryProps) {
   const goPrev = () => setSelectedIndex((i) => (i > 0 ? i - 1 : images.length - 1));
   const goNext = () => setSelectedIndex((i) => (i < images.length - 1 ? i + 1 : 0));
 
+  // Navegação por teclado ←/→ quando em fullscreen
+  useEffect(() => {
+    if (!isFullscreen || images.length <= 1) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen, images.length]);
+
   return (
     <>
       <div className="space-y-3">
@@ -39,13 +51,24 @@ export function ProductGallery({ images, alt, overlay }: ProductGalleryProps) {
           style={tiltStyle}
         >
           {overlay}
-          <ProductImage
-            src={currentImage}
-            alt={alt}
-            width={600}
-            height={600}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-          />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedIndex}
+              initial={{ opacity: 0, scale: 1.04, filter: "blur(6px)" }}
+              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, scale: 0.99, filter: "blur(4px)" }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full h-full"
+            >
+              <ProductImage
+                src={currentImage}
+                alt={alt}
+                width={600}
+                height={600}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+              />
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Thumbnails */}
@@ -90,7 +113,8 @@ export function ProductGallery({ images, alt, overlay }: ProductGalleryProps) {
                   aria-label="Foto anterior"
                   className="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full
                     glass flex items-center justify-center text-white hover:text-gold
-                    transition-colors duration-200"
+                    hover:scale-110 hover:border-gold/40 active:scale-95
+                    transition-all duration-200 ease-expo-out"
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
@@ -99,7 +123,8 @@ export function ProductGallery({ images, alt, overlay }: ProductGalleryProps) {
                   aria-label="Próxima foto"
                   className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full
                     glass flex items-center justify-center text-white hover:text-gold
-                    transition-colors duration-200"
+                    hover:scale-110 hover:border-gold/40 active:scale-95
+                    transition-all duration-200 ease-expo-out"
                 >
                   <ChevronRight className="w-6 h-6" />
                 </button>

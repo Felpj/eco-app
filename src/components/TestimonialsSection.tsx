@@ -76,9 +76,9 @@ const TestimonialsSection = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="glass rounded-2xl p-6 flex flex-col gap-4
-                hover:-translate-y-1 hover:border-[rgba(255,255,255,0.12)]
-                transition-all duration-300 ease-expo-out"
+              className="group glass rounded-2xl p-6 flex flex-col gap-4
+                hover:-translate-y-1 hover:border-[rgba(201,168,76,0.18)]
+                hover:shadow-gold-sm transition-all duration-300 ease-expo-out"
             >
               {/* Stars */}
               <div className="flex gap-0.5">
@@ -97,7 +97,10 @@ const TestimonialsSection = () => {
                 <div className="flex items-center gap-3">
                   {/* Avatar com inicial */}
                   <div className="w-8 h-8 rounded-full bg-gold/15 border border-gold/25
-                    flex items-center justify-center shrink-0">
+                    flex items-center justify-center shrink-0
+                    group-hover:border-gold/50 group-hover:bg-gold/20
+                    group-hover:shadow-[0_0_18px_-2px_rgba(201,168,76,0.6)]
+                    transition-all duration-300 ease-expo-out">
                     <span className="text-gold text-xs font-display font-bold">
                       {t.name.charAt(0)}
                     </span>

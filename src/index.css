@@ -378,6 +378,48 @@
   100% { background-position: -200% 0; }
 }
 
+/* Underline-reveal — link com sublinhado gold que cresce no hover (Footer, links) */
+@layer utilities {
+  .link-underline {
+    position: relative;
+  }
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 0;
+    height: 1px;
+    background: linear-gradient(90deg, hsl(var(--gold)), transparent);
+    transition: width var(--duration-base) var(--ease-out-expo);
+  }
+  .link-underline:hover::after {
+    width: 100%;
+  }
+}
+
+/* Hero title shine — varredura de luz única no load, sobre o gradient gold */
+.hero-title-shine {
+  position: relative;
+}
+.hero-title-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  background-size: 220% 100%;
+  background-position: 200% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  pointer-events: none;
+  animation: hero-shine 1.4s var(--ease-out-expo) 0.9s 1 both;
+}
+@keyframes hero-shine {
+  from { background-position: 200% 0; }
+  to   { background-position: -120% 0; }
+}
+
 /* Fade-in base */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(20px); }

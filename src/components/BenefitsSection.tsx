@@ -83,9 +83,12 @@ const BenefitsSection = () => {
               {/* Icon */}
               <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/15
                 flex items-center justify-center mb-5
-                group-hover:bg-gold/15 group-hover:border-gold/25
-                transition-all duration-300">
-                <benefit.icon className="w-6 h-6 text-gold" />
+                group-hover:bg-gold/15 group-hover:border-gold/30
+                group-hover:shadow-[0_0_24px_-4px_rgba(201,168,76,0.5)]
+                group-hover:scale-105
+                transition-all duration-300 ease-expo-out">
+                <benefit.icon className="w-6 h-6 text-gold transition-transform duration-300
+                  group-hover:scale-110" />
               </div>
 
               <h3 className="font-display text-lg font-semibold text-foreground mb-2">

@@ -36,7 +36,12 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl bg-card border-border p-0 overflow-hidden">
-        <div className="grid md:grid-cols-2 gap-0">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97, y: 12, filter: "blur(6px)" }}
+          animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="grid md:grid-cols-2 gap-0"
+        >
           {/* Image */}
           <div className="relative aspect-square bg-gradient-dark">
             <ProductImage
@@ -199,7 +204,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
               </Link>
             </div>
           </div>
-        </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

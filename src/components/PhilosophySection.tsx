@@ -79,10 +79,13 @@ const PhilosophySection = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ delay: 0.1 + i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="flex-1 glass rounded-2xl p-6 text-center"
+                className="group flex-1 glass rounded-2xl p-6 text-center
+                  hover:-translate-y-1 hover:border-[rgba(201,168,76,0.2)]
+                  hover:shadow-gold-sm transition-all duration-300 ease-expo-out"
               >
                 {/* Número decorativo */}
-                <p className="font-display text-4xl font-bold text-gradient-gold opacity-30 mb-2 leading-none">
+                <p className="font-display text-5xl font-bold text-gradient-gold opacity-25 mb-2 leading-none
+                  group-hover:opacity-60 group-hover:glow-text transition-all duration-300">
                   0{i + 1}
                 </p>
                 <h3 className="font-display text-lg font-semibold text-foreground mb-1">

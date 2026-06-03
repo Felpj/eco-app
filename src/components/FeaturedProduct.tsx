@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Star, ArrowRight, Check } from "lucide-react";
 import featuredProductImage from "@/assets/featured-product.jpg";
@@ -17,6 +17,7 @@ const scentNotes = [
 ];
 
 const FeaturedProduct = () => {
+  const reduceMotion = useReducedMotion();
   return (
     <section className="py-24 bg-background relative overflow-hidden">
       <div className="container mx-auto px-4">
@@ -55,6 +56,20 @@ const FeaturedProduct = () => {
                 style={{ background: "radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%)" }}
                 aria-hidden="true"
               />
+
+              {/* Orbs de luz gold orbitando o produto */}
+              {!reduceMotion && (
+                <motion.div
+                  className="absolute inset-[-8%] pointer-events-none z-20"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
+                  aria-hidden="true"
+                >
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-gold blur-[1px] shadow-[0_0_12px_4px_rgba(201,168,76,0.6)]" />
+                  <span className="absolute bottom-[6%] right-[10%] w-1.5 h-1.5 rounded-full bg-[#e8c659] blur-[1px] shadow-[0_0_10px_3px_rgba(232,198,89,0.5)]" />
+                  <span className="absolute top-1/2 left-0 w-1.5 h-1.5 rounded-full bg-gold/80 blur-[1px] shadow-[0_0_8px_3px_rgba(201,168,76,0.4)]" />
+                </motion.div>
+              )}
 
               {/* Frame glass-gold */}
               <div className="relative z-10 w-full h-full glass-gold rounded-3xl overflow-hidden
@@ -114,11 +129,19 @@ const FeaturedProduct = () => {
                 Pirâmide Olfativa
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {scentNotes.map(({ layer, note }) => (
-                  <div key={layer} className="glass rounded-xl p-3 text-center">
+                {scentNotes.map(({ layer, note }, i) => (
+                  <motion.div
+                    key={layer}
+                    initial={{ opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-40px" }}
+                    transition={{ delay: 0.15 + i * 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="glass rounded-xl p-3 text-center
+                      hover:border-gold/25 hover:shadow-gold-sm transition-all duration-300 ease-expo-out"
+                  >
                     <p className="text-[10px] text-muted-foreground font-body uppercase tracking-wider">{layer}</p>
                     <p className="text-sm text-gold font-body font-medium mt-1">{note}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>

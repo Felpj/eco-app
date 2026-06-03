@@ -11,15 +11,25 @@ const guarantees = [
 const CTASection = () => {
   return (
     <section className="py-28 bg-background relative overflow-hidden">
-      {/* Aurora intensa centralizada */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          style={{
-            width: "700px",
-            height: "700px",
-            background: "radial-gradient(circle, rgba(201,168,76,0.14) 0%, transparent 70%)",
-          }}
+      {/* Aurora intensa centralizada — camadas concêntricas que respiram */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ width: "760px", height: "760px", background: "radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 68%)" }}
+          animate={{ scale: [1, 1.12, 1], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ width: "480px", height: "480px", background: "radial-gradient(circle, rgba(201,168,76,0.10) 0%, transparent 70%)" }}
+          animate={{ scale: [1.08, 1, 1.08], opacity: [0.6, 0.95, 0.6] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+        />
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ width: "240px", height: "240px", background: "radial-gradient(circle, rgba(232,198,89,0.10) 0%, transparent 72%)" }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.9, 0.5] }}
+          transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 

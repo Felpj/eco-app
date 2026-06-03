@@ -1,4 +1,12 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useMotionValue,
+  useReducedMotion,
+} from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, Truck, Users, Star, ShieldCheck } from "lucide-react";
 import heroImage from "@/assets/hero-perfume.jpg";
@@ -42,28 +50,46 @@ const trustBadges = [
 ];
 
 const HeroSection = () => {
+  const reduceMotion = useReducedMotion();
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // ── Parallax no scroll: camadas deslocam em velocidades diferentes ──
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const yBlobGold = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 120]);
+  const yBlobAmber = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : -90]);
+  const yImage = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 70]);
+  const yContent = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 40]);
+  const opacityFade = useTransform(scrollYProgress, [0, 0.8], [1, reduceMotion ? 1 : 0.35]);
+
+  // ── Tilt do frame do produto seguindo o cursor (desktop) ──
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const rotateX = useSpring(useTransform(my, [-0.5, 0.5], [8, -8]), { stiffness: 120, damping: 14 });
+  const rotateY = useSpring(useTransform(mx, [-0.5, 0.5], [-10, 10]), { stiffness: 120, damping: 14 });
+  const shineX = useTransform(mx, [-0.5, 0.5], ["-12%", "12%"]);
+
+  const handleTilt = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (reduceMotion) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+  const resetTilt = () => { mx.set(0); my.set(0); };
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* ── Aurora específica do hero (sobre os blobs globais) ── */}
+    <section ref={sectionRef} className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+      {/* ── Aurora específica do hero (sobre os blobs globais) — com parallax ── */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div
+        <motion.div
+          style={{ y: yBlobGold, top: "5%", left: "5%", width: "700px", height: "700px", background: "var(--aurora-gold)", opacity: 0.8 }}
           className="aurora-blob aurora-blob-lg absolute"
-          style={{
-            top: "5%", left: "5%",
-            width: "700px", height: "700px",
-            background: "var(--aurora-gold)",
-            opacity: 0.8,
-          }}
         />
-        <div
+        <motion.div
+          style={{ y: yBlobAmber, bottom: "0%", right: "-5%", width: "500px", height: "500px", background: "var(--aurora-amber)", opacity: 0.7, animationDelay: "3s" }}
           className="aurora-blob aurora-blob-lg absolute"
-          style={{
-            bottom: "0%", right: "-5%",
-            width: "500px", height: "500px",
-            background: "var(--aurora-amber)",
-            opacity: 0.7,
-            animationDelay: "3s",
-          }}
         />
       </div>
 
@@ -85,6 +111,7 @@ const HeroSection = () => {
             variants={container}
             initial="hidden"
             animate="show"
+            style={{ y: yContent, opacity: opacityFade }}
             className="text-center lg:text-left"
           >
             {/* Label / badge */}
@@ -103,7 +130,7 @@ const HeroSection = () => {
               className="font-display text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-foreground leading-[1.1] tracking-tight mb-5"
             >
               Perfumes Árabes de{" "}
-              <span className="text-gradient-gold">Alta Fixação</span>{" "}
+              <span className="text-gradient-gold hero-title-shine">Alta Fixação</span>{" "}
               <br className="hidden md:block" />
               com Alma de Luxo
             </motion.h1>
@@ -171,20 +198,29 @@ const HeroSection = () => {
             variants={imageVariant}
             initial="hidden"
             animate="show"
+            style={{ y: yImage }}
             className="relative hidden lg:block"
           >
-            <div className="relative w-full aspect-square max-w-lg mx-auto">
-              {/* Glow atrás */}
-              <div
+            <motion.div
+              className="relative w-full aspect-square max-w-lg mx-auto"
+              onMouseMove={handleTilt}
+              onMouseLeave={resetTilt}
+              style={{ perspective: 1000 }}
+            >
+              {/* Glow atrás — "respirando" */}
+              <motion.div
                 className="absolute inset-[-10%] rounded-full pointer-events-none"
                 style={{ background: "radial-gradient(circle, rgba(201,168,76,0.18) 0%, transparent 70%)" }}
+                animate={reduceMotion ? undefined : { opacity: [0.55, 1, 0.55], scale: [1, 1.06, 1] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 aria-hidden="true"
               />
 
-              {/* Frame glass */}
+              {/* Frame glass — float + tilt 3D seguindo o cursor */}
               <motion.div
-                animate={{ y: [-8, 4, -8] }}
+                animate={reduceMotion ? undefined : { y: [-8, 4, -8] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
                 className="relative z-10 w-full h-full glass-gold rounded-3xl overflow-hidden"
               >
                 <img
@@ -194,24 +230,35 @@ const HeroSection = () => {
                   height={600}
                   className="w-full h-full object-cover"
                 />
+                {/* reflexo de luz que acompanha o tilt */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%)",
+                    x: shineX,
+                  }}
+                  aria-hidden="true"
+                />
               </motion.div>
 
-              {/* Floating card — desconto */}
+              {/* Floating card — desconto (entrada dramática: scale + rotate) */}
               <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, y: 24, scale: 0.7, rotate: -8 }}
+                animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+                transition={{ delay: 1, duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+                style={{ translateZ: 40 }}
                 className="absolute -top-3 -right-6 z-20 glass-gold rounded-2xl px-4 py-3 shadow-gold-md"
               >
                 <span className="font-display font-bold text-xl text-gold leading-none block">-82%</span>
                 <span className="text-muted-foreground text-[11px] font-body">vs original</span>
               </motion.div>
 
-              {/* Floating card — avaliação */}
+              {/* Floating card — avaliação (entrada dramática) */}
               <motion.div
-                initial={{ opacity: 0, y: -16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, y: -24, scale: 0.7, rotate: 8 }}
+                animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+                transition={{ delay: 1.18, duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+                style={{ translateZ: 40 }}
                 className="absolute -bottom-3 -left-6 z-20 glass rounded-2xl px-4 py-3"
               >
                 <div className="flex gap-0.5 mb-1">
@@ -221,7 +268,7 @@ const HeroSection = () => {
                 </div>
                 <span className="text-muted-foreground text-[11px] font-body">4.9 · 2.800+ avaliações</span>
               </motion.div>
-            </div>
+            </motion.div>
           </motion.div>
 
         </div>
