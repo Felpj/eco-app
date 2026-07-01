@@ -140,7 +140,9 @@ const CatalogoPage = () => {
     }
 
     return result;
-  }, [filters, activeCollection]);
+    // products PRECISA estar nas deps: sem ele, o memo congela no [] do 1º render
+    // (fetch ainda carregando) e nunca recomputa quando os produtos chegam → "0 encontrados".
+  }, [filters, activeCollection, products]);
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
