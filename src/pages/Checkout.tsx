@@ -17,13 +17,16 @@ import { cn } from "@/lib/utils";
 import {
   ApiError,
   createOrder,
+  getCheckoutBump,
   quoteShipping,
   validateOrderStock,
+  type CheckoutBump,
   type CreateOrderPayload,
   type PaymentMethod,
   type ShippingMethodId,
   type ShippingQuoteOption,
 } from "@/lib/api";
+import { CheckoutBumpModal } from "@/components/upsell/CheckoutBumpModal";
 import { getAffiliateSessionId } from "@/lib/affiliate-tracking";
 import { toast } from "@/hooks/use-toast";
 
@@ -90,6 +93,11 @@ const Checkout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Order bump da loja (backend). Mostrado UMA vez no clique de "Confirmar pagamento".
+  const [bump, setBump] = useState<CheckoutBump | null>(null);
+  const [bumpModalOpen, setBumpModalOpen] = useState(false);
+  const [bumpShown, setBumpShown] = useState(false);
+
   // Idempotency-Key gerado 1× no mount; reusado em retries.
   // Reset acontece via mudança de chave (key na rota) ou unmount (volta pra cart).
   const idempotencyKeyRef = useRef<string>("");
@@ -99,6 +107,21 @@ const Checkout = () => {
         ? crypto.randomUUID()
         : `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
+
+  // Carrega o order bump configurado pela loja (ou null). Silencioso se falhar.
+  useEffect(() => {
+    let active = true;
+    getCheckoutBump()
+      .then((b) => {
+        if (active) setBump(b);
+      })
+      .catch(() => {
+        if (active) setBump(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Items canonicos (productId + qty) — referência estável p/ effects
   const orderItems = useMemo(
@@ -213,6 +236,27 @@ const Checkout = () => {
       }
       return;
     }
+    // Order bump: intercepta o clique UMA vez (se há bump e o produto ainda não está
+    // no carrinho). Aceitar/recusar seguem pro submitOrder.
+    if (bump && !bumpShown && !cartProductIds.includes(bump.product.id)) {
+      setBumpShown(true);
+      setBumpModalOpen(true);
+      return;
+    }
+    await submitOrder(null);
+  };
+
+  const handleBumpAccept = async () => {
+    setBumpModalOpen(false);
+    await submitOrder(bump);
+  };
+
+  const handleBumpDecline = async () => {
+    setBumpModalOpen(false);
+    await submitOrder(null);
+  };
+
+  const submitOrder = async (upsell: CheckoutBump | null) => {
     if (!contactData || !shippingData || !paymentData) return;
     if (isSubmitting) return;
 
@@ -220,9 +264,14 @@ const Checkout = () => {
     setStockErrors(null);
     setIsSubmitting(true);
 
+    // Bump aceito entra só no pedido enviado, não no carrinho persistente.
+    const finalItems = upsell
+      ? [...orderItems, { productId: upsell.product.id, quantity: 1 }]
+      : orderItems;
+
     try {
       // 1. validate stock antes de criar order
-      const stock = await validateOrderStock({ items: orderItems });
+      const stock = await validateOrderStock({ items: finalItems });
       if (!stock.valid) {
         setStockErrors(stock.errors);
         toast({
@@ -257,8 +306,9 @@ const Checkout = () => {
         payment: {
           method: (paymentData.method.toUpperCase() as PaymentMethod) ?? "PIX",
         },
-        items: orderItems,
+        items: finalItems,
         couponCode: couponCode || undefined,
+        upsellOfferId: upsell?.offerId,
       };
 
       const affiliateSessionId = getAffiliateSessionId();
@@ -480,6 +530,15 @@ const Checkout = () => {
                   </button>
                 )}
               </div>
+
+              {bump && (
+                <CheckoutBumpModal
+                  bump={bump}
+                  isOpen={bumpModalOpen}
+                  onAccept={handleBumpAccept}
+                  onDecline={handleBumpDecline}
+                />
+              )}
 
               {/* Stock / submit errors */}
               {stockErrors && stockErrors.length > 0 && (

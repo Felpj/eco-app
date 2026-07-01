@@ -403,6 +403,8 @@ export interface CreateOrderPayload {
   items: OrderItemInput[];
   couponCode?: string;
   affiliateRef?: string;
+  // Order bump aceito no checkout. O back aplica o preço especial server-side.
+  upsellOfferId?: string;
   notes?: string;
 }
 
@@ -493,6 +495,35 @@ export async function createOrder(
     body: JSON.stringify(payload),
     extraHeaders,
   });
+}
+
+// ───────────────────────────────────────────────────────────
+// Offers — order bump do checkout
+// ───────────────────────────────────────────────────────────
+
+export interface CheckoutBump {
+  offerId: string;
+  title: string;
+  subtitle?: string | null;
+  badge?: string | null;
+  ctaText: string;
+  description?: string | null;
+  expiresAt?: string | null;
+  discountType: "PERCENT" | "AMOUNT";
+  discountValue: number;
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+    image: string;
+    originalPrice: number;
+    specialPrice: number;
+  };
+}
+
+// Order bump ativo da loja (ou null). Preços aqui são só exibição — o real é server-side.
+export async function getCheckoutBump(): Promise<CheckoutBump | null> {
+  return apiFetch<CheckoutBump | null>(`/offers/checkout-bump`);
 }
 
 // ───────────────────────────────────────────────────────────
