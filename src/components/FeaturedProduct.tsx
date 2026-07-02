@@ -188,7 +188,7 @@ const FeaturedProduct = () => {
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
               <Link
-                to="/produto/1"
+                to="/catalogo"
                 className="shine-effect group inline-flex items-center justify-center gap-2
                   bg-gradient-gold text-[#080808] font-body font-semibold
                   px-7 py-4 rounded-xl text-sm tracking-wide
@@ -199,7 +199,7 @@ const FeaturedProduct = () => {
                 <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
               <Link
-                to="/produto/1"
+                to="/catalogo"
                 className="inline-flex items-center justify-center gap-2
                   glass border border-[rgba(201,168,76,0.25)] text-gold
                   font-body font-medium px-7 py-4 rounded-xl text-sm

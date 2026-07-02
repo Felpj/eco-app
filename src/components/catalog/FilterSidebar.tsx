@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { brands, audiences, sizes } from "@/data/products";
+import { useProductFacets } from "@/hooks/use-products";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -38,6 +38,12 @@ const sortOptions = [
 ];
 
 const FilterSidebar = ({ filters, onFiltersChange, onClose, isMobile }: FilterSidebarProps) => {
+  // Facets reais do backend (marca/público/tamanho); fallback vazio enquanto carrega.
+  const { data: facets } = useProductFacets();
+  const brands = facets?.brands.map((b) => b.name) ?? [];
+  const audiences = facets?.audiences ?? [];
+  const sizes = facets?.sizes ?? [];
+
   const [openSections, setOpenSections] = useState({
     brand: true,
     audience: true,
