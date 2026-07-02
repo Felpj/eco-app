@@ -4,25 +4,12 @@ import { CartItemRow } from "@/components/commerce/CartItemRow";
 import { CartSummary } from "@/components/commerce/CartSummary";
 import { CartEmptyState } from "@/components/commerce/CartEmptyState";
 import { FreeShippingProgress } from "@/components/upsell/FreeShippingProgress";
-import { OrderBumpCard } from "@/components/upsell/OrderBumpCard";
-import { BundleCard } from "@/components/upsell/BundleCard";
-import { UpsellShelf } from "@/components/upsell/UpsellShelf";
 import { useCartStore } from "@/store/cart.store";
-import { getEligibleOffers } from "@/data/upsellOffers";
 import { motion } from "framer-motion";
 
 const Cart = () => {
   const { items, getSubtotal } = useCartStore();
   const cartTotal = getSubtotal();
-  const cartProductIds = items.map((item) => item.product.id);
-
-  // Busca ofertas elegíveis
-  const orderBumps = getEligibleOffers("CART", cartTotal, cartProductIds).filter(
-    (o) => o.type === "ORDER_BUMP"
-  );
-  const bundles = getEligibleOffers("CART", cartTotal, cartProductIds).filter(
-    (o) => o.type === "BUNDLE"
-  );
 
   if (items.length === 0) {
     return (
@@ -82,46 +69,6 @@ const Cart = () => {
                 ))}
               </div>
 
-              {/* Order Bumps */}
-              {orderBumps.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gold inline-block" />
-                    Adicione ao seu pedido
-                  </h2>
-                  {orderBumps.map((offer) => (
-                    <OrderBumpCard
-                      key={offer.id}
-                      offer={offer}
-                      context="CART"
-                      cartTotal={cartTotal}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Bundles */}
-              {bundles.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gold inline-block" />
-                    Kits Especiais
-                  </h2>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {bundles.map((offer) => (
-                      <BundleCard
-                        key={offer.id}
-                        offer={offer}
-                        context="CART"
-                        cartTotal={cartTotal}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upsell Shelf */}
-              <UpsellShelf context="CART" />
             </div>
 
             {/* Cart Summary */}

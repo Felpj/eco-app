@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
-import { Star, Eye, MessageCircle, Bell } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Star, Eye, ShoppingBag, Bell } from "lucide-react";
 import { Product } from "@/data/products";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { useCartStore } from "@/store/cart.store";
 import { cn } from "@/lib/utils";
 import { AddToCartButton } from "@/components/commerce/AddToCartButton";
 
@@ -25,13 +27,21 @@ const cardVariants = {
 };
 
 const ProductCard = ({ product, onQuickView, index = 0 }: ProductCardProps) => {
+  const navigate = useNavigate();
+  const addItem = useCartStore((s) => s.addItem);
   const isOutOfStock = product.availability === "out_of_stock";
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const installment = Math.ceil(product.price_brl / 12);
 
-  const handleWhatsApp = (e: React.MouseEvent) => {
+  const handleBuyNow = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const message = `Olá! Tenho interesse no perfume ${product.name} (${product.brand}) - R$ ${product.price_brl}`;
+    addItem(product, 1);
+    navigate("/checkout");
+  };
+
+  const handleNotify = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const message = `Olá! Quero ser avisado quando ${product.name} (${product.brand}) voltar ao estoque.`;
     window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
 
@@ -172,7 +182,9 @@ const ProductCard = ({ product, onQuickView, index = 0 }: ProductCardProps) => {
           {/* Ações */}
           <div className="flex flex-col gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
             {isOutOfStock ? (
-              <button className="w-full glass border border-[rgba(255,255,255,0.1)]
+              <button
+                onClick={handleNotify}
+                className="w-full glass border border-[rgba(255,255,255,0.1)]
                 text-muted-foreground text-sm font-body py-2.5 rounded-xl
                 flex items-center justify-center gap-2
                 hover:text-gold hover:border-gold/30 transition-colors duration-200">
@@ -182,15 +194,15 @@ const ProductCard = ({ product, onQuickView, index = 0 }: ProductCardProps) => {
             ) : (
               <>
                 <button
-                  onClick={handleWhatsApp}
+                  onClick={handleBuyNow}
                   className="w-full bg-gradient-gold text-[#080808] text-sm
                     font-body font-semibold py-2.5 rounded-xl
                     flex items-center justify-center gap-2
                     hover:-translate-y-0.5 hover:shadow-gold-sm
                     transition-all duration-200 ease-expo-out shine-effect"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  Comprar no WhatsApp
+                  <ShoppingBag className="w-4 h-4" />
+                  Comprar agora
                 </button>
                 <div className="flex gap-2 min-w-0">
                   <button

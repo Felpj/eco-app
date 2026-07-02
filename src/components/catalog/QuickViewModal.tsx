@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Star, Minus, Plus, MessageCircle, ShoppingCart, Bell, ExternalLink } from "lucide-react";
-import { Link } from "react-router-dom";
+import { X, Star, Minus, Plus, ShoppingBag, ShoppingCart, Bell, ExternalLink } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Product } from "@/data/products";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { useCartStore } from "@/store/cart.store";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -21,6 +23,8 @@ interface QuickViewModalProps {
 
 const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const [quantity, setQuantity] = useState(1);
+  const navigate = useNavigate();
+  const addItem = useCartStore((s) => s.addItem);
 
   if (!product) return null;
 
@@ -28,8 +32,24 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const installment = Math.ceil(product.price_brl / 12);
 
-  const handleWhatsApp = () => {
-    const message = `Olá! Quero comprar ${quantity}x ${product.name} (${product.brand}) - ${product.size_ml}ml - R$ ${product.price_brl * quantity}`;
+  const handleAddToCart = () => {
+    addItem(product, quantity);
+    toast({
+      title: "Adicionado ao carrinho!",
+      description: `${quantity}x ${product.name} no seu carrinho.`,
+    });
+    onClose();
+  };
+
+  const handleBuyNow = () => {
+    addItem(product, quantity);
+    onClose();
+    navigate("/checkout");
+  };
+
+  // Sem estoque: notificação de retorno pelo WhatsApp (canal de suporte, não de compra).
+  const handleNotify = () => {
+    const message = `Olá! Quero ser avisado quando ${product.name} (${product.brand}) voltar ao estoque.`;
     window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
   };
 
@@ -175,29 +195,29 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
             <div className="mt-auto space-y-3">
               {isOutOfStock ? (
                 <div className="space-y-3">
-                  <Button variant="goldOutline" className="w-full gap-2">
+                  <Button variant="goldOutline" className="w-full gap-2" onClick={handleNotify}>
                     <Bell className="w-5 h-5" />
                     Avise-me quando voltar
                   </Button>
                   <p className="text-xs text-muted-foreground font-body text-center">
-                    Informe seu WhatsApp ou email para ser notificado
+                    Te avisamos pelo WhatsApp assim que voltar
                   </p>
                 </div>
               ) : (
                 <>
-                  <Button variant="gold" className="w-full gap-2" onClick={handleWhatsApp}>
-                    <MessageCircle className="w-5 h-5" />
-                    Comprar no WhatsApp
+                  <Button variant="gold" className="w-full gap-2" onClick={handleBuyNow}>
+                    <ShoppingBag className="w-5 h-5" />
+                    Comprar agora
                   </Button>
-                  <Button variant="secondary" className="w-full gap-2">
+                  <Button variant="secondary" className="w-full gap-2" onClick={handleAddToCart}>
                     <ShoppingCart className="w-5 h-5" />
                     Adicionar ao carrinho
                   </Button>
                 </>
               )}
-              
+
               <Link to={`/produto/${product.slug}`} onClick={onClose}>
-                <Button variant="ghost" className="w-full gap-2 text-muted-foreground">
+                <Button variant="goldOutline" className="w-full gap-2">
                   <ExternalLink className="w-4 h-4" />
                   Ver página completa
                 </Button>

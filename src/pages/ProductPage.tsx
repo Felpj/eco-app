@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Star, Check, Truck, Shield, Minus, Plus, MessageCircle, ChevronDown, AlertCircle } from "lucide-react";
+import { Star, Check, Truck, Shield, Minus, Plus, ShoppingBag, ChevronDown, AlertCircle } from "lucide-react";
 import { AddToCartButton } from "@/components/commerce/AddToCartButton";
+import { useCartStore } from "@/store/cart.store";
 import { ProductGallery } from "@/components/catalog/ProductGallery";
 import { UpsellShelf } from "@/components/upsell/UpsellShelf";
 import { ProductReviews } from "@/components/catalog/ProductReviews";
@@ -17,6 +18,7 @@ import { formatMoney, calculateInstallment } from "@/lib/money";
 const ProductPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const addItem = useCartStore((s) => s.addItem);
   const [quantity, setQuantity] = useState(1);
 
   const { data: product, loading, error, reload } = useProductBySlug(slug);
@@ -80,9 +82,9 @@ const ProductPage = () => {
     product.images && product.images.length > 0 ? product.images : [product.image];
   const description = product.description;
 
-  const handleWhatsApp = () => {
-    const message = `Olá! Tenho interesse no perfume ${product.name} (${product.brand}) - R$ ${product.price_brl}`;
-    window.open(`https://wa.me/5518996718769?text=${encodeURIComponent(message)}`, "_blank");
+  const handleBuyNow = () => {
+    addItem(product, quantity);
+    navigate("/checkout");
   };
 
   return (
@@ -320,13 +322,15 @@ const ProductPage = () => {
                 </div>
 
                 <button
-                  onClick={handleWhatsApp}
+                  onClick={handleBuyNow}
+                  disabled={isOutOfStock}
                   className="w-full h-14 glass border border-[var(--glass-border)] rounded-xl
                     flex items-center justify-center gap-2 text-foreground font-body font-semibold
-                    hover:border-gold/30 hover:text-gold transition-all duration-200"
+                    hover:border-gold/30 hover:text-gold transition-all duration-200
+                    disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <MessageCircle className="w-5 h-5" />
-                  Comprar no WhatsApp
+                  <ShoppingBag className="w-5 h-5" />
+                  Comprar agora
                 </button>
               </div>
 
