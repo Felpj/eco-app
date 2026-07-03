@@ -106,7 +106,8 @@ interface BackendProduct {
 interface BackendProductDetail extends BackendProduct {
   description: string | null;
   weightGrams: number | null;
-  images: string[];
+  // back devolve objetos {url, sortOrder} ordenados — o adapter achata pra string[]
+  images: Array<{ url: string; sortOrder: number }>;
   scentNotes: { top?: string[]; heart?: string[]; base?: string[] } | null;
   inspirationMeta: {
     priceEstimate?: number;
@@ -200,7 +201,7 @@ function adaptProductDetail(b: BackendProductDetail): ProductDetail {
   return {
     ...adaptProduct(b),
     description: b.description ?? null,
-    images: Array.isArray(b.images) ? b.images : [],
+    images: Array.isArray(b.images) ? b.images.map((img) => img.url) : [],
     scentNotes: b.scentNotes
       ? {
           top: b.scentNotes.top ?? [],
