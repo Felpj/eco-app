@@ -10,19 +10,17 @@ import { useState } from "react";
 
 interface OrderSummaryStickyProps {
   shipping?: number;
-  orderBumpValue?: number;
 }
 
 export const OrderSummarySticky = ({
   shipping = 0,
-  orderBumpValue = 0,
 }: OrderSummaryStickyProps) => {
   const { items, coupon, getSubtotal, getDiscountTotal, getTotalPrice } = useCartStore();
   const [isOpen, setIsOpen] = useState(false);
 
   const subtotal = getSubtotal();
   const discount = getDiscountTotal();
-  const total = getTotalPrice() + shipping + orderBumpValue;
+  const total = getTotalPrice() + shipping;
 
   if (items.length === 0) {
     return null;
@@ -89,13 +87,6 @@ export const OrderSummarySticky = ({
               <div className="flex justify-between text-sm text-foreground font-body">
                 <span>Frete</span>
                 <span>{formatMoney(shipping)}</span>
-              </div>
-            )}
-
-            {orderBumpValue > 0 && (
-              <div className="flex justify-between text-sm text-foreground font-body">
-                <span>Upsell</span>
-                <span>{formatMoney(orderBumpValue)}</span>
               </div>
             )}
 
@@ -184,13 +175,6 @@ export const OrderSummarySticky = ({
                 <div className="flex justify-between text-sm text-foreground font-body">
                   <span>Frete</span>
                   <span>{formatMoney(shipping)}</span>
-                </div>
-              )}
-
-              {orderBumpValue > 0 && (
-                <div className="flex justify-between text-sm text-foreground font-body">
-                  <span>Upsell</span>
-                  <span>{formatMoney(orderBumpValue)}</span>
                 </div>
               )}
 

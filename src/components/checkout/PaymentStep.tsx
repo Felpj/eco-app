@@ -4,7 +4,6 @@ import { z } from "zod";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +13,6 @@ const paymentSchema = z.object({
   cardName: z.string().optional(),
   cardExpiry: z.string().optional(),
   cardCVC: z.string().optional(),
-  addUpsell: z.boolean().default(false),
 });
 
 export type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -50,12 +48,10 @@ export const PaymentStep = ({ data, onSubmit }: PaymentStepProps) => {
     resolver: zodResolver(paymentSchema),
     defaultValues: data || {
       method: "pix",
-      addUpsell: false,
     },
   });
 
   const paymentMethod = watch("method");
-  const addUpsell = watch("addUpsell");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -197,30 +193,6 @@ export const PaymentStep = ({ data, onSubmit }: PaymentStepProps) => {
           </div>
         </div>
       )}
-
-      {/* Upsell Bump */}
-      <div className="bg-card rounded-lg border border-border p-4">
-        <div className="flex items-start space-x-3">
-          <Checkbox
-            id="upsell"
-            checked={addUpsell}
-            onCheckedChange={(checked) =>
-              setValue("addUpsell", checked === true)
-            }
-          />
-          <div className="flex-1">
-            <Label
-              htmlFor="upsell"
-              className="text-foreground font-body font-semibold cursor-pointer block mb-1"
-            >
-              Adicionar amostra 5ml por R$ 29,90
-            </Label>
-            <p className="text-sm text-muted-foreground font-body">
-              Experimente uma fragrância diferente com nossa amostra premium
-            </p>
-          </div>
-        </div>
-      </div>
 
       <button type="submit" className="hidden" />
     </form>

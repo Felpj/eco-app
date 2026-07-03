@@ -5,7 +5,7 @@ import { Star, Check, Truck, Shield, Minus, Plus, ShoppingBag, ChevronDown, Aler
 import { AddToCartButton } from "@/components/commerce/AddToCartButton";
 import { useCartStore } from "@/store/cart.store";
 import { ProductGallery } from "@/components/catalog/ProductGallery";
-import { UpsellShelf } from "@/components/upsell/UpsellShelf";
+import { RelatedProducts } from "@/components/catalog/RelatedProducts";
 import { ProductReviews } from "@/components/catalog/ProductReviews";
 import { InspirationBlock } from "@/components/catalog/InspirationBlock";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -360,7 +360,7 @@ const ProductPage = () => {
 
         {/* Compre junto */}
         <div className="mt-24 container mx-auto px-4">
-          <UpsellShelf context="PDP" currentProductId={product.id} />
+          <RelatedProducts currentProduct={product} />
         </div>
 
         {/* Testimonials */}

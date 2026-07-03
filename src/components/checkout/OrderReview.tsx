@@ -28,8 +28,7 @@ export const OrderReview = ({
   const discount = getDiscountTotal();
   const shippingPrice =
     shipping.shippingMethod === "express" ? 15 : 10; // Mock shipping
-  const upsellPrice = payment.addUpsell ? 29.9 : 0;
-  const total = getTotalPrice() + shippingPrice + upsellPrice;
+  const total = getTotalPrice() + shippingPrice;
 
   const handleTermsChange = (checked: boolean) => {
     setAcceptTerms(checked);
@@ -132,11 +131,6 @@ export const OrderReview = ({
             <strong>Método:</strong>{" "}
             {payment.method === "pix" ? "PIX" : "Cartão de Crédito"}
           </p>
-          {payment.addUpsell && (
-            <p className="text-foreground font-body mt-2">
-              <strong>Upsell:</strong> Amostra 5ml adicionada
-            </p>
-          )}
         </div>
       </div>
 
@@ -156,12 +150,6 @@ export const OrderReview = ({
           <span>Frete</span>
           <span>{formatMoney(shippingPrice)}</span>
         </div>
-        {payment.addUpsell && (
-          <div className="flex justify-between text-foreground font-body">
-            <span>Upsell</span>
-            <span>{formatMoney(upsellPrice)}</span>
-          </div>
-        )}
         <div className="border-t border-border pt-3">
           <div className="flex justify-between">
             <span className="text-foreground font-body font-semibold">

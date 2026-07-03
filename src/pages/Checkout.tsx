@@ -9,10 +9,8 @@ import { ShippingStep, ShippingFormData } from "@/components/checkout/ShippingSt
 import { PaymentStep, PaymentFormData } from "@/components/checkout/PaymentStep";
 import { OrderReview } from "@/components/checkout/OrderReview";
 import { OrderSummarySticky } from "@/components/checkout/OrderSummarySticky";
-import { OrderBumpCard } from "@/components/upsell/OrderBumpCard";
 import { useCartStore } from "@/store/cart.store";
 import { useCheckoutDraft } from "@/hooks/use-checkout-draft";
-import { getEligibleOffers } from "@/data/upsellOffers";
 import { cn } from "@/lib/utils";
 import {
   ApiError,
@@ -41,12 +39,8 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { items, clearCart, getSubtotal } = useCartStore();
   const { draft, updateDraft, clearDraft } = useCheckoutDraft();
-  const cartTotal = getSubtotal();
   const cartProductIds = items.map((item) => item.product.id);
 
-  const orderBumps = getEligibleOffers("CHECKOUT", cartTotal, cartProductIds).filter(
-    (o) => o.type === "ORDER_BUMP"
-  );
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [contactData, setContactData] = useState<ContactFormData | null>(
@@ -78,7 +72,6 @@ const Checkout = () => {
     draft?.payment
       ? {
           method: draft.payment.method.toLowerCase() as "pix" | "card",
-          addUpsell: draft.orderBump?.enabled || false,
         }
       : null
   );
@@ -218,9 +211,6 @@ const Checkout = () => {
           : undefined,
         payment: paymentData
           ? { method: paymentData.method.toUpperCase() as "PIX" | "CARD" }
-          : undefined,
-        orderBump: paymentData
-          ? { enabled: paymentData.addUpsell || false }
           : undefined,
         acceptTerms,
       });
@@ -400,22 +390,6 @@ const Checkout = () => {
                 payment={paymentData}
                 onAcceptTerms={setAcceptTerms}
               />
-              {orderBumps.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-[var(--glass-border)]">
-                  <h3 className="font-display text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gold inline-block" />
-                    Adicione ao seu pedido
-                  </h3>
-                  {orderBumps.map((offer) => (
-                    <OrderBumpCard
-                      key={offer.id}
-                      offer={offer}
-                      context="CHECKOUT"
-                      cartTotal={cartTotal}
-                    />
-                  ))}
-                </div>
-              )}
             </>
           )
         );
@@ -480,10 +454,7 @@ const Checkout = () => {
 
               {/* Mobile Order Summary */}
               <div className="lg:hidden mb-6">
-                <OrderSummarySticky
-                  shipping={chosenShippingPrice}
-                  orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
-                />
+                <OrderSummarySticky shipping={chosenShippingPrice} />
               </div>
 
               {/* Navigation Buttons */}
@@ -571,10 +542,7 @@ const Checkout = () => {
 
             {/* Right Column - Order Summary */}
             <div className="hidden lg:block lg:col-span-1">
-              <OrderSummarySticky
-                shipping={chosenShippingPrice}
-                orderBumpValue={paymentData?.addUpsell ? 29.9 : 0}
-              />
+              <OrderSummarySticky shipping={chosenShippingPrice} />
               {isQuotingShipping && (
                 <p className="mt-2 text-xs text-muted-foreground/60 font-body text-center">
                   Calculando frete...
