@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import PromoBar from "@/components/catalog/PromoBar";
 import CatalogHeader from "@/components/catalog/CatalogHeader";
@@ -42,7 +43,11 @@ const sortOptions = [
 ];
 
 const CatalogoPage = () => {
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [searchParams] = useSearchParams();
+  const brandParam = searchParams.get("marca");
+  const [filters, setFilters] = useState<FilterState>(() =>
+    brandParam ? { ...defaultFilters, brands: [brandParam] } : defaultFilters,
+  );
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);

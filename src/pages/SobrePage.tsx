@@ -64,10 +64,10 @@ const SobrePage = () => {
               >
                 <div className="grid grid-cols-2 gap-8">
                   {[
-                    { value: "15k+", label: "Clientes Satisfeitos" },
-                    { value: "4.9", label: "Avaliação Média" },
-                    { value: "98%", label: "Taxa de Satisfação" },
-                    { value: "50+", label: "Fragrâncias" },
+                    { value: "1.200+", label: "Clientes Satisfeitos" },
+                    { value: "4.8", label: "Avaliação Média" },
+                    { value: "97%", label: "Taxa de Satisfação" },
+                    { value: "60+", label: "Fragrâncias" },
                   ].map((stat) => (
                     <div key={stat.label} className="text-center">
                       <p className="font-display text-3xl font-bold text-gradient-gold mb-2">

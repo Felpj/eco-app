@@ -43,10 +43,10 @@ const imageVariant = {
 };
 
 const trustBadges = [
-  { icon: Users,      value: "500+",  label: "Clientes" },
+  { icon: Users,      value: "1.200+", label: "Clientes" },
   { icon: Truck,      value: "24h",   label: "Envio Rápido" },
   { icon: ShieldCheck,value: "100%",  label: "Autêntico" },
-  { icon: Star,       value: "4.9★",  label: "Avaliação" },
+  { icon: Star,       value: "4.8★",  label: "Avaliação" },
 ];
 
 const HeroSection = () => {
@@ -266,7 +266,7 @@ const HeroSection = () => {
                     <Star key={i} className="w-3 h-3 fill-gold text-gold" />
                   ))}
                 </div>
-                <span className="text-muted-foreground text-[11px] font-body">4.9 · 2.800+ avaliações</span>
+                <span className="text-muted-foreground text-[11px] font-body">4.8 · 350+ avaliações</span>
               </motion.div>
             </motion.div>
           </motion.div>

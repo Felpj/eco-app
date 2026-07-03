@@ -98,7 +98,12 @@ const ProductPage = () => {
               Catálogo
             </Link>
             <span>/</span>
-            <span className="text-gold/80">{product.brand}</span>
+            <Link
+              to={`/catalogo?marca=${encodeURIComponent(product.brand)}`}
+              className="text-gold/80 hover:text-gold transition-colors duration-200"
+            >
+              {product.brand}
+            </Link>
             <span>/</span>
             <span className="text-foreground truncate max-w-[180px]">{product.name}</span>
           </nav>

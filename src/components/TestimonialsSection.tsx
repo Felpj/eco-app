@@ -33,10 +33,10 @@ const testimonials = [
 ];
 
 const stats = [
-  { value: "2.847", label: "Avaliações" },
-  { value: "4.9/5", label: "Nota Média" },
-  { value: "98%",   label: "Satisfação" },
-  { value: "15k+",  label: "Clientes" },
+  { value: "350+",   label: "Avaliações" },
+  { value: "4.8/5",  label: "Nota Média" },
+  { value: "97%",    label: "Satisfação" },
+  { value: "1.200+", label: "Clientes" },
 ];
 
 const TestimonialsSection = () => {
@@ -63,7 +63,7 @@ const TestimonialsSection = () => {
             <span className="text-gradient-gold">dizem</span>
           </h2>
           <p className="text-muted-foreground font-body max-w-xl mx-auto">
-            Mais de 2.800 avaliações 5 estrelas de clientes satisfeitos em todo o Brasil
+            Centenas de avaliações 5 estrelas de clientes satisfeitos em todo o Brasil
           </p>
         </motion.div>
 
