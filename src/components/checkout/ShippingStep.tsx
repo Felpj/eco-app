@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCEP, isValidCEP } from "@/lib/validators";
-import { Truck, Package } from "lucide-react";
+import { Truck, Package, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAddressByCep, ApiError } from "@/lib/api";
+import { formatMoney } from "@/lib/money";
+import {
+  getAddressByCep,
+  getMyAddresses,
+  createAddress,
+  ApiError,
+  type BackendAddress,
+  type ShippingQuoteOption,
+} from "@/lib/api";
+import { useAuthStore } from "@/store/auth.store";
 import { toast } from "@/hooks/use-toast";
 
 const shippingSchema = z.object({
@@ -28,27 +38,47 @@ export type ShippingFormData = z.infer<typeof shippingSchema>;
 interface ShippingStepProps {
   data?: ShippingFormData;
   onSubmit: (data: ShippingFormData) => void;
+  quotes?: ShippingQuoteOption[] | null;
+  isQuoting?: boolean;
+  onCepChange?: (cep: string) => void;
 }
 
+// Labels/ícones fixos; preço real vem da quote (fallback = flat do server).
 const shippingOptions = [
   {
-    id: "express",
+    id: "express" as const,
+    quoteId: "EXPRESS_24H" as const,
     label: "Expresso 24/48h",
     description: "Entrega rápida em até 48 horas",
-    price: 15,
+    fallbackPrice: 15,
     icon: Truck,
   },
   {
-    id: "normal",
+    id: "normal" as const,
+    quoteId: "STANDARD" as const,
     label: "Normal",
     description: "Entrega em 5 a 7 dias úteis",
-    price: 10,
+    fallbackPrice: 10,
     icon: Package,
   },
 ];
 
-export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
+export const ShippingStep = ({
+  data,
+  onSubmit,
+  quotes,
+  isQuoting,
+  onCepChange,
+}: ShippingStepProps) => {
+  const isAuthenticated = useAuthStore((s) => s.session.isAuthenticated);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
+
+  // Address book (só logado): lista da conta + seleção.
+  const [savedAddresses, setSavedAddresses] = useState<BackendAddress[] | null>(
+    null,
+  );
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
+  const [saveNewAddress, setSaveNewAddress] = useState(true);
 
   const {
     register,
@@ -71,6 +101,59 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
   });
 
   const shippingMethod = watch("shippingMethod");
+
+  const applyAddress = (a: BackendAddress) => {
+    setSelectedAddressId(a.id);
+    setValue("cep", formatCEP(a.cep), { shouldValidate: true });
+    setValue("address", a.street, { shouldValidate: true });
+    setValue("number", a.number, { shouldValidate: true });
+    setValue("complement", a.complement ?? "", { shouldValidate: true });
+    setValue("neighborhood", a.neighborhood, { shouldValidate: true });
+    setValue("city", a.city, { shouldValidate: true });
+    setValue("state", a.state.toUpperCase(), { shouldValidate: true });
+    onCepChange?.(a.cep.replace(/\D/g, ""));
+  };
+
+  const startNewAddress = () => {
+    setSelectedAddressId("new");
+    setValue("cep", "");
+    setValue("address", "");
+    setValue("number", "");
+    setValue("complement", "");
+    setValue("neighborhood", "");
+    setValue("city", "");
+    setValue("state", "");
+  };
+
+  // Dispara a quote pro CEP que veio do draft (o effect do Checkout só reage
+  // ao que a gente avisar por aqui).
+  useEffect(() => {
+    const digits = (data?.cep ?? "").replace(/\D/g, "");
+    if (digits.length === 8) onCepChange?.(digits);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Carrega endereços salvos da conta; pré-seleciona o padrão se o form está vazio.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    getMyAddresses()
+      .then((list) => {
+        if (!active) return;
+        setSavedAddresses(list);
+        if (!data && list.length > 0) {
+          const def = list.find((a) => a.isDefault) ?? list[0];
+          applyAddress(def);
+        }
+      })
+      .catch(() => {
+        if (active) setSavedAddresses([]);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const handleSearchCEP = async (rawCep?: string) => {
     const cep = (rawCep ?? watch("cep") ?? "").replace(/\D/g, "");
@@ -101,143 +184,268 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
     setValue("cep", formatted, { shouldValidate: true });
     const digits = formatted.replace(/\D/g, "");
     if (digits.length === 8) {
+      onCepChange?.(digits);
       void handleSearchCEP(digits);
     }
   };
 
+  // Salva endereço novo na conta (best-effort: falha nunca trava o checkout).
+  const submitWithSave = (values: ShippingFormData) => {
+    if (isAuthenticated && selectedAddressId === "new" && saveNewAddress) {
+      const cepDigits = values.cep.replace(/\D/g, "");
+      const isDuplicate = (savedAddresses ?? []).some(
+        (a) =>
+          a.cep.replace(/\D/g, "") === cepDigits &&
+          a.street.trim().toLowerCase() === values.address.trim().toLowerCase() &&
+          a.number.trim() === values.number.trim(),
+      );
+      if (!isDuplicate) {
+        // label é enum no back (Casa|Trabalho|Outro)
+        void createAddress({
+          label: (savedAddresses ?? []).length === 0 ? "Casa" : "Outro",
+          cep: cepDigits,
+          street: values.address,
+          number: values.number,
+          complement: values.complement || undefined,
+          neighborhood: values.neighborhood,
+          city: values.city,
+          state: values.state.toUpperCase(),
+          isDefault: (savedAddresses ?? []).length === 0,
+        }).catch(() => {});
+      }
+    }
+    onSubmit(values);
+  };
+
+  const isNewAddress = selectedAddressId === "new";
+  const hasSaved = (savedAddresses?.length ?? 0) > 0;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* CEP Search */}
-      <div>
-        <Label htmlFor="cep" className="text-foreground font-body">
-          CEP *
-        </Label>
-        <div className="flex gap-2 mt-2">
-          <Input
-            id="cep"
-            type="tel"
-            {...register("cep")}
-            onChange={handleCEPChange}
-            className="flex-1 bg-secondary border-border"
-            placeholder="00000-000"
-            maxLength={9}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSearchCEP()}
-            disabled={isLoadingCEP}
-          >
-            {isLoadingCEP ? "Buscando..." : "Buscar"}
-          </Button>
-        </div>
-        {errors.cep && (
-          <p className="mt-1 text-sm text-destructive font-body">
-            {errors.cep.message}
-          </p>
-        )}
-      </div>
-
-      {/* Address Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:col-span-2">
-          <Label htmlFor="address" className="text-foreground font-body">
-            Endereço *
-          </Label>
-          <Input
-            id="address"
-            {...register("address")}
-            className="mt-2 bg-secondary border-border"
-            placeholder="Rua, Avenida, etc."
-          />
-          {errors.address && (
-            <p className="mt-1 text-sm text-destructive font-body">
-              {errors.address.message}
-            </p>
-          )}
-        </div>
-
+    <form onSubmit={handleSubmit(submitWithSave)} className="space-y-6">
+      {/* Endereços salvos da conta */}
+      {hasSaved && (
         <div>
-          <Label htmlFor="number" className="text-foreground font-body">
-            Número *
+          <Label className="text-foreground font-body mb-3 block">
+            Endereço de entrega *
           </Label>
-          <Input
-            id="number"
-            {...register("number")}
-            className="mt-2 bg-secondary border-border"
-            placeholder="123"
-          />
-          {errors.number && (
-            <p className="mt-1 text-sm text-destructive font-body">
-              {errors.number.message}
-            </p>
-          )}
-        </div>
+          <div className="space-y-3">
+            {savedAddresses!.map((a) => {
+              const isSelected = selectedAddressId === a.id;
+              return (
+                <div
+                  key={a.id}
+                  onClick={() => applyAddress(a)}
+                  className={cn(
+                    "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                    isSelected
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:border-primary/50",
+                  )}
+                >
+                  <MapPin
+                    className={cn(
+                      "w-5 h-5 mt-0.5 shrink-0",
+                      isSelected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-body font-semibold text-foreground truncate">
+                        {a.label}
+                      </p>
+                      {a.isDefault && (
+                        <span className="text-[10px] uppercase tracking-wide font-body px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+                          Padrão
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground font-body truncate">
+                      {a.street}, {a.number}
+                      {a.complement ? ` - ${a.complement}` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground font-body">
+                      {a.neighborhood}, {a.city} - {a.state} · CEP {formatCEP(a.cep)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
 
-        <div>
-          <Label htmlFor="complement" className="text-foreground font-body">
-            Complemento
-          </Label>
-          <Input
-            id="complement"
-            {...register("complement")}
-            className="mt-2 bg-secondary border-border"
-            placeholder="Apto, Bloco, etc."
-          />
+            <div
+              onClick={startNewAddress}
+              className={cn(
+                "flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                isNewAddress
+                  ? "border-primary bg-primary/10"
+                  : "border-dashed border-border bg-card hover:border-primary/50",
+              )}
+            >
+              <Plus
+                className={cn(
+                  "w-5 h-5",
+                  isNewAddress ? "text-primary" : "text-muted-foreground",
+                )}
+              />
+              <p className="font-body font-semibold text-foreground">
+                Usar outro endereço
+              </p>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div>
-          <Label htmlFor="neighborhood" className="text-foreground font-body">
-            Bairro *
-          </Label>
-          <Input
-            id="neighborhood"
-            {...register("neighborhood")}
-            className="mt-2 bg-secondary border-border"
-            placeholder="Bairro"
-          />
-          {errors.neighborhood && (
-            <p className="mt-1 text-sm text-destructive font-body">
-              {errors.neighborhood.message}
-            </p>
-          )}
-        </div>
+      {/* Form de endereço (novo, ou visitante) */}
+      {(isNewAddress || !hasSaved) && (
+        <>
+          {/* CEP Search */}
+          <div>
+            <Label htmlFor="cep" className="text-foreground font-body">
+              CEP *
+            </Label>
+            <div className="flex gap-2 mt-2">
+              <Input
+                id="cep"
+                type="tel"
+                {...register("cep")}
+                onChange={handleCEPChange}
+                className="flex-1 bg-secondary border-border"
+                placeholder="00000-000"
+                maxLength={9}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleSearchCEP()}
+                disabled={isLoadingCEP}
+              >
+                {isLoadingCEP ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+            {errors.cep && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.cep.message}
+              </p>
+            )}
+          </div>
 
-        <div>
-          <Label htmlFor="city" className="text-foreground font-body">
-            Cidade *
-          </Label>
-          <Input
-            id="city"
-            {...register("city")}
-            className="mt-2 bg-secondary border-border"
-            placeholder="Cidade"
-          />
-          {errors.city && (
-            <p className="mt-1 text-sm text-destructive font-body">
-              {errors.city.message}
-            </p>
-          )}
-        </div>
+          {/* Address Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <Label htmlFor="address" className="text-foreground font-body">
+                Endereço *
+              </Label>
+              <Input
+                id="address"
+                {...register("address")}
+                className="mt-2 bg-secondary border-border"
+                placeholder="Rua, Avenida, etc."
+              />
+              {errors.address && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {errors.address.message}
+                </p>
+              )}
+            </div>
 
-        <div>
-          <Label htmlFor="state" className="text-foreground font-body">
-            Estado *
-          </Label>
-          <Input
-            id="state"
-            {...register("state")}
-            className="mt-2 bg-secondary border-border uppercase"
-            placeholder="SP"
-            maxLength={2}
-          />
-          {errors.state && (
-            <p className="mt-1 text-sm text-destructive font-body">
-              {errors.state.message}
-            </p>
+            <div>
+              <Label htmlFor="number" className="text-foreground font-body">
+                Número *
+              </Label>
+              <Input
+                id="number"
+                {...register("number")}
+                className="mt-2 bg-secondary border-border"
+                placeholder="123"
+              />
+              {errors.number && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {errors.number.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="complement" className="text-foreground font-body">
+                Complemento
+              </Label>
+              <Input
+                id="complement"
+                {...register("complement")}
+                className="mt-2 bg-secondary border-border"
+                placeholder="Apto, Bloco, etc."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="neighborhood" className="text-foreground font-body">
+                Bairro *
+              </Label>
+              <Input
+                id="neighborhood"
+                {...register("neighborhood")}
+                className="mt-2 bg-secondary border-border"
+                placeholder="Bairro"
+              />
+              {errors.neighborhood && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {errors.neighborhood.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="city" className="text-foreground font-body">
+                Cidade *
+              </Label>
+              <Input
+                id="city"
+                {...register("city")}
+                className="mt-2 bg-secondary border-border"
+                placeholder="Cidade"
+              />
+              {errors.city && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {errors.city.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="state" className="text-foreground font-body">
+                Estado *
+              </Label>
+              <Input
+                id="state"
+                {...register("state")}
+                className="mt-2 bg-secondary border-border uppercase"
+                placeholder="SP"
+                maxLength={2}
+              />
+              {errors.state && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {errors.state.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {isAuthenticated && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="save-address"
+                checked={saveNewAddress}
+                onCheckedChange={(checked) => setSaveNewAddress(checked === true)}
+              />
+              <Label
+                htmlFor="save-address"
+                className="text-sm text-foreground font-body cursor-pointer"
+              >
+                Salvar este endereço pra próximas compras
+              </Label>
+            </div>
           )}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Shipping Method */}
       <div>
@@ -254,6 +462,8 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
           {shippingOptions.map((option) => {
             const Icon = option.icon;
             const isSelected = shippingMethod === option.id;
+            const quote = quotes?.find((q) => q.id === option.quoteId);
+            const price = quote?.price ?? option.fallbackPrice;
 
             return (
               <div
@@ -264,7 +474,7 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
                     ? "border-primary bg-primary/10"
                     : "border-border bg-card hover:border-primary/50"
                 )}
-                onClick={() => setValue("shippingMethod", option.id as "express" | "normal")}
+                onClick={() => setValue("shippingMethod", option.id)}
               >
                 <RadioGroupItem value={option.id} id={option.id} className="mt-1" />
                 <div className="flex-1">
@@ -276,11 +486,15 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
                       {option.label}
                     </Label>
                     <span className="text-primary font-body font-bold">
-                      R$ {option.price}
+                      {isQuoting
+                        ? "..."
+                        : price === 0
+                          ? "Grátis"
+                          : formatMoney(price)}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground font-body">
-                    {option.description}
+                    {quote?.estimatedDays ?? option.description}
                   </p>
                 </div>
                 <Icon
@@ -293,6 +507,11 @@ export const ShippingStep = ({ data, onSubmit }: ShippingStepProps) => {
             );
           })}
         </RadioGroup>
+        {isQuoting && (
+          <p className="mt-2 text-xs text-muted-foreground font-body">
+            Calculando frete pro seu CEP...
+          </p>
+        )}
         {errors.shippingMethod && (
           <p className="mt-1 text-sm text-destructive font-body">
             {errors.shippingMethod.message}

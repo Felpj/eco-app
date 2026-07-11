@@ -3,22 +3,30 @@ import { useCartStore } from "@/store/cart.store";
 import { formatMoney } from "@/lib/money";
 import { ContactFormData } from "./ContactStep";
 import { ShippingFormData } from "./ShippingStep";
-import { PaymentFormData } from "./PaymentStep";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { QrCode, CreditCard } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export type PaymentMethodChoice = "pix" | "card";
 
 interface OrderReviewProps {
   contact: ContactFormData;
   shipping: ShippingFormData;
-  payment: PaymentFormData;
+  paymentMethod: PaymentMethodChoice;
+  onPaymentMethodChange: (method: PaymentMethodChoice) => void;
+  shippingPrice: number;
   onAcceptTerms?: (accepted: boolean) => void;
 }
 
 export const OrderReview = ({
   contact,
   shipping,
-  payment,
+  paymentMethod,
+  onPaymentMethodChange,
+  shippingPrice,
   onAcceptTerms,
 }: OrderReviewProps) => {
   const { items, getSubtotal, getDiscountTotal, getTotalPrice } = useCartStore();
@@ -26,8 +34,6 @@ export const OrderReview = ({
 
   const subtotal = getSubtotal();
   const discount = getDiscountTotal();
-  const shippingPrice =
-    shipping.shippingMethod === "express" ? 15 : 10; // Mock shipping
   const total = getTotalPrice() + shippingPrice;
 
   const handleTermsChange = (checked: boolean) => {
@@ -121,17 +127,64 @@ export const OrderReview = ({
         </div>
       </div>
 
-      {/* Payment Info */}
+      {/* Payment Method */}
       <div>
         <h3 className="font-display text-lg font-semibold text-foreground mb-4">
           Pagamento
         </h3>
-        <div className="bg-card rounded-lg border border-border p-4">
-          <p className="text-foreground font-body">
-            <strong>Método:</strong>{" "}
-            {payment.method === "pix" ? "PIX" : "Cartão de Crédito"}
-          </p>
-        </div>
+        <RadioGroup
+          value={paymentMethod}
+          onValueChange={(v) => onPaymentMethodChange(v as PaymentMethodChoice)}
+          className="space-y-3"
+        >
+          <div
+            onClick={() => onPaymentMethodChange("pix")}
+            className={cn(
+              "flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all",
+              paymentMethod === "pix"
+                ? "border-primary bg-primary/10"
+                : "border-border bg-card hover:border-primary/50"
+            )}
+          >
+            <RadioGroupItem value="pix" id="pay-pix" />
+            <QrCode
+              className={cn(
+                "w-5 h-5",
+                paymentMethod === "pix" ? "text-primary" : "text-muted-foreground"
+              )}
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="pay-pix"
+                className="font-body font-semibold text-foreground cursor-pointer"
+              >
+                PIX
+              </Label>
+              <p className="text-sm text-muted-foreground font-body">
+                Aprovação imediata — QR Code na próxima tela
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
+            aria-disabled
+          >
+            <RadioGroupItem value="card" id="pay-card" disabled />
+            <CreditCard className="w-5 h-5 text-muted-foreground" />
+            <div className="flex-1">
+              <Label
+                htmlFor="pay-card"
+                className="font-body font-semibold text-foreground"
+              >
+                Cartão de Crédito
+              </Label>
+              <p className="text-sm text-muted-foreground font-body">
+                Em breve
+              </p>
+            </div>
+          </div>
+        </RadioGroup>
       </div>
 
       {/* Summary */}

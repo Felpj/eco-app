@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutSteps } from "@/components/checkout/CheckoutSteps";
 import { ContactStep, ContactFormData } from "@/components/checkout/ContactStep";
 import { ShippingStep, ShippingFormData } from "@/components/checkout/ShippingStep";
-import { PaymentStep, PaymentFormData } from "@/components/checkout/PaymentStep";
-import { OrderReview } from "@/components/checkout/OrderReview";
+import {
+  OrderReview,
+  type PaymentMethodChoice,
+} from "@/components/checkout/OrderReview";
 import { OrderSummarySticky } from "@/components/checkout/OrderSummarySticky";
 import { useCartStore } from "@/store/cart.store";
 import { useCheckoutDraft } from "@/hooks/use-checkout-draft";
@@ -28,11 +30,11 @@ import { CheckoutBumpModal } from "@/components/upsell/CheckoutBumpModal";
 import { getAffiliateSessionId } from "@/lib/affiliate-tracking";
 import { toast } from "@/hooks/use-toast";
 
+// Revisão e pagamento são o MESMO step: revisa tudo, escolhe o método e confirma.
 const steps = [
   { id: "contact", label: "Contato", number: 1 },
   { id: "shipping", label: "Entrega", number: 2 },
   { id: "payment", label: "Pagamento", number: 3 },
-  { id: "review", label: "Revisão", number: 4 },
 ];
 
 const Checkout = () => {
@@ -68,12 +70,8 @@ const Checkout = () => {
         }
       : null
   );
-  const [paymentData, setPaymentData] = useState<PaymentFormData | null>(
-    draft?.payment
-      ? {
-          method: draft.payment.method.toLowerCase() as "pix" | "card",
-        }
-      : null
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>(
+    draft?.payment?.method === "CARD" ? "card" : "pix"
   );
   const [acceptTerms, setAcceptTerms] = useState(draft?.acceptTerms || false);
 
@@ -133,8 +131,14 @@ const Checkout = () => {
     }
   }, [items.length, navigate]);
 
-  // Slice 2: quote de frete sempre que mudar CEP ou itens
-  const cep = shippingData?.cep?.replace(/\D/g, "") ?? "";
+  // Slice 2: quote de frete sempre que mudar CEP ou itens. O CEP vem do que o
+  // usuário digita/seleciona DENTRO do ShippingStep (via onCepChange) — antes
+  // só reagia ao draft, e o step mostrava preço flat enquanto o resumo cobrava
+  // a quote real.
+  const [quoteCep, setQuoteCep] = useState<string>(
+    draft?.delivery?.cep?.replace(/\D/g, "") ?? ""
+  );
+  const cep = quoteCep || (shippingData?.cep?.replace(/\D/g, "") ?? "");
   useEffect(() => {
     if (cep.length !== 8 || orderItems.length === 0) {
       setShippingQuotes(null);
@@ -180,14 +184,8 @@ const Checkout = () => {
     setCurrentStep(2);
   };
 
-  const handlePaymentSubmit = (data: PaymentFormData) => {
-    setPaymentData(data);
-    setDirection(1);
-    setCurrentStep(3);
-  };
-
   useEffect(() => {
-    if (contactData || shippingData || paymentData) {
+    if (contactData || shippingData) {
       updateDraft({
         contact: contactData
           ? {
@@ -209,13 +207,13 @@ const Checkout = () => {
                 shippingData.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD",
             }
           : undefined,
-        payment: paymentData
-          ? { method: paymentData.method.toUpperCase() as "PIX" | "CARD" }
-          : undefined,
+        payment: {
+          method: paymentMethod.toUpperCase() as "PIX" | "CARD",
+        },
         acceptTerms,
       });
     }
-  }, [contactData, shippingData, paymentData, acceptTerms, updateDraft]);
+  }, [contactData, shippingData, paymentMethod, acceptTerms, updateDraft]);
 
   const handleFinalSubmit = async () => {
     if (!acceptTerms) {
@@ -247,7 +245,7 @@ const Checkout = () => {
   };
 
   const submitOrder = async (upsell: CheckoutBump | null) => {
-    if (!contactData || !shippingData || !paymentData) return;
+    if (!contactData || !shippingData) return;
     if (isSubmitting) return;
 
     setSubmitError(null);
@@ -294,7 +292,7 @@ const Checkout = () => {
             shippingData.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD",
         },
         payment: {
-          method: (paymentData.method.toUpperCase() as PaymentMethod) ?? "PIX",
+          method: paymentMethod.toUpperCase() as PaymentMethod,
         },
         items: finalItems,
         couponCode: couponCode || undefined,
@@ -377,20 +375,27 @@ const Checkout = () => {
       case 0:
         return <ContactStep data={contactData || undefined} onSubmit={handleContactSubmit} />;
       case 1:
-        return <ShippingStep data={shippingData || undefined} onSubmit={handleShippingSubmit} />;
-      case 2:
-        return <PaymentStep data={paymentData || undefined} onSubmit={handlePaymentSubmit} />;
-      case 3:
         return (
-          contactData && shippingData && paymentData && (
-            <>
-              <OrderReview
-                contact={contactData}
-                shipping={shippingData}
-                payment={paymentData}
-                onAcceptTerms={setAcceptTerms}
-              />
-            </>
+          <ShippingStep
+            data={shippingData || undefined}
+            onSubmit={handleShippingSubmit}
+            quotes={shippingQuotes}
+            isQuoting={isQuotingShipping}
+            onCepChange={setQuoteCep}
+          />
+        );
+      case 2:
+        return (
+          contactData &&
+          shippingData && (
+            <OrderReview
+              contact={contactData}
+              shipping={shippingData}
+              paymentMethod={paymentMethod}
+              onPaymentMethodChange={setPaymentMethod}
+              shippingPrice={chosenShippingPrice}
+              onAcceptTerms={setAcceptTerms}
+            />
           )
         );
       default:
@@ -471,7 +476,7 @@ const Checkout = () => {
                   {currentStep === 0 ? "Voltar" : "Anterior"}
                 </button>
 
-                {currentStep < 3 ? (
+                {currentStep < 2 ? (
                   <button
                     onClick={handleStepSubmit}
                     className="shine-effect group bg-gradient-gold text-[#080808]
