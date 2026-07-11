@@ -10,6 +10,7 @@ describe("safeInternalPath (redirect pós-login)", () => {
   it("rejeita URL absoluta e protocol-relative (open redirect)", () => {
     expect(safeInternalPath("https://evil.com")).toBe("/conta");
     expect(safeInternalPath("//evil.com")).toBe("/conta");
+    expect(safeInternalPath("/\\evil.com")).toBe("/conta");
     expect(safeInternalPath("javascript:alert(1)")).toBe("/conta");
   });
 

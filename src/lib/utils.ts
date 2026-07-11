@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Redirect pós-login: só aceita path interno ("/x"), nunca "//host" ou URL
- * absoluta vinda da query string. Qualquer outra coisa cai no fallback.
+ * Redirect pós-login: só aceita path interno ("/x"), nunca "//host", "/\host"
+ * (WHATWG trata \ como /) ou URL absoluta vinda da query string.
  */
 export function safeInternalPath(raw: string | null, fallback = "/conta"): string {
-  if (raw && /^\/(?!\/)/.test(raw)) return raw;
+  if (raw && /^\/(?![/\\])/.test(raw)) return raw;
   return fallback;
 }
