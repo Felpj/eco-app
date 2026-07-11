@@ -44,6 +44,19 @@ export function formatCEP(cep: string): string {
 }
 
 /**
+ * Converte telefone vindo do backend (E.164: +55 + DDD + número) pra
+ * formato nacional formatado, aceito por isValidPhone. O 55 só é
+ * removido com 12-13 dígitos — com 11 pode ser DDD 55 (RS).
+ */
+export function toNationalPhone(phone: string): string {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.length > 11 && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  return formatPhone(digits);
+}
+
+/**
  * Formata telefone
  */
 export function formatPhone(phone: string): string {

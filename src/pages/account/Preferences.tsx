@@ -15,7 +15,12 @@ import {
 } from "@/lib/api";
 import { handleAuthError } from "@/lib/auth-guard";
 import { useAuthStore } from "@/store/auth.store";
-import { formatPhone, isValidEmail, isValidPhone } from "@/lib/validators";
+import {
+  formatPhone,
+  isValidEmail,
+  isValidPhone,
+  toNationalPhone,
+} from "@/lib/validators";
 
 const categoryOptions = [
   "Doce",
@@ -63,7 +68,7 @@ const Preferences = () => {
         setMe(res);
         setFullName(res.fullName || "");
         setEmail(res.email || "");
-        setWhatsapp(res.whatsapp ? formatPhone(res.whatsapp) : "");
+        setWhatsapp(res.whatsapp ? toNationalPhone(res.whatsapp) : "");
         setReceiveWhatsAppUpdates(res.profile?.receiveWhatsAppUpdates ?? true);
         setReceiveEmailUpdates(res.profile?.receiveEmailUpdates ?? false);
         setFavoriteCategories(res.profile?.favoriteCategories ?? []);
@@ -127,7 +132,8 @@ const Preferences = () => {
       };
       // Só envia email/whatsapp se mudaram (anti-stomp em campos null)
       if ((me?.email ?? "") !== email.trim()) payload.email = email.trim();
-      if ((me?.whatsapp ?? "") !== cleanWhatsapp) payload.whatsapp = cleanWhatsapp;
+      const meWhatsappDigits = toNationalPhone(me?.whatsapp ?? "").replace(/\D/g, "");
+      if (meWhatsappDigits !== cleanWhatsapp) payload.whatsapp = cleanWhatsapp;
 
       const updated = await updateCustomerMe(payload);
       setMe(updated);

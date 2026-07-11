@@ -6,7 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { formatPhone, isValidEmail, isValidPhone } from "@/lib/validators";
+import {
+  formatPhone,
+  isValidEmail,
+  isValidPhone,
+  toNationalPhone,
+} from "@/lib/validators";
 import { useAuthStore } from "@/store/auth.store";
 import {
   ApiError,
@@ -64,7 +69,7 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
       ? {
           name: profile.fullName,
           email: profile.email || "",
-          phone: profile.whatsapp || "",
+          phone: toNationalPhone(profile.whatsapp || ""),
           wantsWhatsAppUpdates: false,
         }
       : {
@@ -102,7 +107,7 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
       reset({
         name: profile.fullName,
         email: profile.email || "",
-        phone: profile.whatsapp || "",
+        phone: toNationalPhone(profile.whatsapp || ""),
         wantsWhatsAppUpdates: getValues("wantsWhatsAppUpdates") ?? false,
       });
       setAccountChoice(null);
@@ -228,7 +233,7 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
             )}
             {profile.whatsapp && (
               <p className="text-xs font-body text-muted-foreground">
-                {profile.whatsapp}
+                {toNationalPhone(profile.whatsapp)}
               </p>
             )}
           </div>
@@ -249,6 +254,11 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
               readOnly
               className="mt-2 bg-secondary border-border cursor-not-allowed"
             />
+            {errors.name && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.name.message}
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-foreground font-body">Email</Label>
@@ -257,6 +267,11 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
               readOnly
               className="mt-2 bg-secondary border-border cursor-not-allowed"
             />
+            {errors.email && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.email.message}
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-foreground font-body">WhatsApp</Label>
@@ -265,6 +280,11 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
               readOnly
               className="mt-2 bg-secondary border-border cursor-not-allowed"
             />
+            {errors.phone && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.phone.message} — use "Não sou eu, trocar" pra corrigir.
+              </p>
+            )}
           </div>
         </div>
 
