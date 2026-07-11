@@ -96,10 +96,15 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
 
   // Estado interno auth
   const [accountChoice, setAccountChoice] = useState<AccountChoice>(null);
+  const [identifier, setIdentifier] = useState("");
+  const [identifierError, setIdentifierError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // "Sim, já tenho conta" → o step vira um mini-login: só identificador + senha.
+  const isLoginMode = !isAuthenticated && accountChoice === "yes";
 
   // Sincroniza form se o user logar/deslogar enquanto o step está montado.
   useEffect(() => {
@@ -131,9 +136,70 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
       wantsWhatsAppUpdates: false,
     });
     setAccountChoice(null);
+    setIdentifier("");
+    setIdentifierError(null);
     setPassword("");
     setPasswordError(null);
     setAuthError(null);
+  };
+
+  // Login inline no modo "já tenho conta". Depois de logar, se os dados da
+  // conta já completam o contato, avança o step direto; se faltar algo
+  // (ex.: conta sem email), o step re-renderiza logado com o campo editável.
+  const doLogin = async () => {
+    setAuthError(null);
+    setIdentifierError(null);
+    setPasswordError(null);
+
+    const raw = identifier.trim();
+    if (!raw) {
+      setIdentifierError("Informe seu WhatsApp ou email");
+      return;
+    }
+    const looksLikeEmail = raw.includes("@");
+    if (looksLikeEmail && !isValidEmail(raw)) {
+      setIdentifierError("Email inválido");
+      return;
+    }
+    const idValue = looksLikeEmail ? raw : raw.replace(/\D/g, "");
+    if (!looksLikeEmail && (idValue.length < 10 || idValue.length > 13)) {
+      setIdentifierError("WhatsApp inválido");
+      return;
+    }
+    if (!password) {
+      setPasswordError("Informe sua senha");
+      return;
+    }
+
+    setIsAuthLoading(true);
+    try {
+      const tokens = await loginCustomer({ identifier: idValue, password });
+      persistAuth(tokens);
+      const candidate: ContactFormData = {
+        name: tokens.user.fullName,
+        email: tokens.user.email ?? "",
+        phone: toNationalPhone(tokens.user.whatsapp ?? ""),
+        wantsWhatsAppUpdates: getValues("wantsWhatsAppUpdates") ?? false,
+      };
+      const parsed = contactSchema.safeParse(candidate);
+      if (parsed.success) {
+        onSubmit(parsed.data);
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setAuthError(
+          "Credenciais inválidas. Esqueceu a senha? Fale com a loja por WhatsApp."
+        );
+      } else {
+        setAuthError(
+          err instanceof ApiError && err.message
+            ? err.message
+            : "Não foi possível entrar. Tente novamente."
+        );
+      }
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   const submitFlow = async (formData: ContactFormData) => {
@@ -146,35 +212,7 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
       return;
     }
 
-    // 2. "Sim, já tenho conta"
-    if (accountChoice === "yes") {
-      if (!password) {
-        setPasswordError("Informe sua senha");
-        return;
-      }
-      setIsAuthLoading(true);
-      try {
-        const identifier = formData.email || formData.phone.replace(/\D/g, "");
-        const tokens = await loginCustomer({ identifier, password });
-        persistAuth(tokens);
-        onSubmit(formData);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          setAuthError(
-            "Senha incorreta. Esqueceu? Fale com a loja por WhatsApp."
-          );
-        } else {
-          setAuthError(
-            err instanceof ApiError && err.message
-              ? err.message
-              : "Não foi possível entrar. Tente novamente."
-          );
-        }
-      } finally {
-        setIsAuthLoading(false);
-      }
-      return;
-    }
+    // 2. "Sim, já tenho conta" é tratado fora daqui (isLoginMode → doLogin).
 
     // 3. "Não tenho conta" + senha preenchida → signup
     if (accountChoice === "no" && password) {
@@ -217,6 +255,10 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
 
   // ─────────────── Bypass: usuário já logado ───────────────
   if (isAuthenticated && profile) {
+    // Campo com dado válido da conta fica travado; faltante/inválido
+    // (ex.: conta criada só com whatsapp) fica editável pra não bloquear.
+    const emailLocked = !!profile.email && isValidEmail(profile.email);
+    const phoneLocked = isValidPhone(toNationalPhone(profile.whatsapp || ""));
     return (
       <form onSubmit={handleSubmit(submitFlow)} className="space-y-6">
         <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex items-start gap-3">
@@ -261,11 +303,19 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
             )}
           </div>
           <div>
-            <Label className="text-foreground font-body">Email</Label>
+            <Label className="text-foreground font-body">
+              Email{emailLocked ? "" : " *"}
+            </Label>
             <Input
+              type="email"
               {...register("email")}
-              readOnly
-              className="mt-2 bg-secondary border-border cursor-not-allowed"
+              readOnly={emailLocked}
+              placeholder="seu@email.com"
+              className={
+                emailLocked
+                  ? "mt-2 bg-secondary border-border cursor-not-allowed"
+                  : "mt-2 bg-secondary border-border"
+              }
             />
             {errors.email && (
               <p className="mt-1 text-sm text-destructive font-body">
@@ -274,15 +324,25 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
             )}
           </div>
           <div>
-            <Label className="text-foreground font-body">WhatsApp</Label>
+            <Label className="text-foreground font-body">
+              WhatsApp{phoneLocked ? "" : " *"}
+            </Label>
             <Input
+              type="tel"
               {...register("phone")}
-              readOnly
-              className="mt-2 bg-secondary border-border cursor-not-allowed"
+              onChange={handlePhoneChange}
+              readOnly={phoneLocked}
+              placeholder="(11) 99999-9999"
+              maxLength={15}
+              className={
+                phoneLocked
+                  ? "mt-2 bg-secondary border-border cursor-not-allowed"
+                  : "mt-2 bg-secondary border-border"
+              }
             />
             {errors.phone && (
               <p className="mt-1 text-sm text-destructive font-body">
-                {errors.phone.message} — use "Não sou eu, trocar" pra corrigir.
+                {errors.phone.message}
               </p>
             )}
           </div>
@@ -316,61 +376,75 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
 
   // ─────────────── Form padrão (não logado) ───────────────
   return (
-    <form onSubmit={handleSubmit(submitFlow)} className="space-y-6">
-      <div>
-        <Label htmlFor="name" className="text-foreground font-body">
-          Nome completo *
-        </Label>
-        <Input
-          id="name"
-          {...register("name")}
-          className="mt-2 bg-secondary border-border"
-          placeholder="Seu nome completo"
-        />
-        {errors.name && (
-          <p className="mt-1 text-sm text-destructive font-body">
-            {errors.name.message}
-          </p>
-        )}
-      </div>
+    <form
+      onSubmit={
+        isLoginMode
+          ? (e) => {
+              e.preventDefault();
+              void doLogin();
+            }
+          : handleSubmit(submitFlow)
+      }
+      className="space-y-6"
+    >
+      {!isLoginMode && (
+        <>
+          <div>
+            <Label htmlFor="name" className="text-foreground font-body">
+              Nome completo *
+            </Label>
+            <Input
+              id="name"
+              {...register("name")}
+              className="mt-2 bg-secondary border-border"
+              placeholder="Seu nome completo"
+            />
+            {errors.name && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.name.message}
+              </p>
+            )}
+          </div>
 
-      <div>
-        <Label htmlFor="email" className="text-foreground font-body">
-          Email *
-        </Label>
-        <Input
-          id="email"
-          type="email"
-          {...register("email")}
-          className="mt-2 bg-secondary border-border"
-          placeholder="seu@email.com"
-        />
-        {errors.email && (
-          <p className="mt-1 text-sm text-destructive font-body">
-            {errors.email.message}
-          </p>
-        )}
-      </div>
+          <div>
+            <Label htmlFor="email" className="text-foreground font-body">
+              Email *
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              {...register("email")}
+              className="mt-2 bg-secondary border-border"
+              placeholder="seu@email.com"
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
 
-      <div>
-        <Label htmlFor="phone" className="text-foreground font-body">
-          WhatsApp *
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          {...register("phone")}
-          onChange={handlePhoneChange}
-          className="mt-2 bg-secondary border-border"
-          placeholder="(11) 99999-9999"
-          maxLength={15}
-        />
-        {errors.phone && (
-          <p className="mt-1 text-sm text-destructive font-body">
-            {errors.phone.message}
-          </p>
-        )}
-      </div>
+          <div>
+            <Label htmlFor="phone" className="text-foreground font-body">
+              WhatsApp *
+            </Label>
+            <Input
+              id="phone"
+              type="tel"
+              {...register("phone")}
+              onChange={handlePhoneChange}
+              className="mt-2 bg-secondary border-border"
+              placeholder="(11) 99999-9999"
+              maxLength={15}
+            />
+            {errors.phone && (
+              <p className="mt-1 text-sm text-destructive font-body">
+                {errors.phone.message}
+              </p>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center space-x-2">
@@ -403,6 +477,8 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
             value={accountChoice ?? ""}
             onValueChange={(v) => {
               setAccountChoice(v as AccountChoice);
+              setIdentifier("");
+              setIdentifierError(null);
               setPassword("");
               setPasswordError(null);
               setAuthError(null);
@@ -431,7 +507,29 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
         </div>
 
         {accountChoice === "yes" && (
-          <div>
+          <div className="space-y-4">
+            <div>
+              <Label
+                htmlFor="login-identifier"
+                className="text-foreground font-body"
+              >
+                WhatsApp ou Email *
+              </Label>
+              <Input
+                id="login-identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="mt-2 bg-secondary border-border"
+                placeholder="seu@email.com ou (11) 99999-9999"
+                autoComplete="username"
+              />
+              {identifierError && (
+                <p className="mt-1 text-sm text-destructive font-body">
+                  {identifierError}
+                </p>
+              )}
+            </div>
+            <div>
             <Label
               htmlFor="password-login"
               className="text-foreground font-body"
@@ -460,6 +558,7 @@ export const ContactStep = ({ data, onSubmit }: ContactStepProps) => {
             >
               Esqueci minha senha → fale por WhatsApp
             </a>
+            </div>
           </div>
         )}
 
