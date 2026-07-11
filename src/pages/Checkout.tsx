@@ -125,11 +125,14 @@ const Checkout = () => {
   );
 
   // Redirect empty cart in useEffect (never during render — causes "Cannot update component while rendering")
+  // Guard isSubmitting: no sucesso o clearCart() esvazia o carrinho ANTES do
+  // navigate pro /pedido — sem o guard este effect roubava a navegação e
+  // jogava o usuário no /carrinho vazio em vez da página do pedido.
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !isSubmitting) {
       navigate("/carrinho");
     }
-  }, [items.length, navigate]);
+  }, [items.length, isSubmitting, navigate]);
 
   // Slice 2: quote de frete sempre que mudar CEP ou itens. O CEP vem do que o
   // usuário digita/seleciona DENTRO do ShippingStep (via onCepChange) — antes
@@ -306,9 +309,11 @@ const Checkout = () => {
         affiliateSessionId,
       );
 
+      // navigate ANTES de limpar o carrinho: navigate de componente
+      // desmontado é no-op no react-router (ver guard do effect acima).
+      navigate(`/pedido/${order.orderCode}`);
       clearCart();
       clearDraft();
-      navigate(`/pedido/${order.orderCode}`);
     } catch (err) {
       if (err instanceof ApiError) {
         // 400 com errors de stock detalhados
