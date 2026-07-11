@@ -397,10 +397,21 @@ export interface CreateOrderDelivery {
   document?: string;
 }
 
+// Dados do cartão tokenizado pelo Brick do Mercado Pago (só quando method=CARD).
+// O token é single-use e nunca trafega dado de cartão pelo nosso back.
+export interface OrderCardPayload {
+  token: string;
+  paymentMethodId: string;
+  issuerId?: string;
+  installments: number;
+  payerEmail: string;
+  payerDocument: string;
+}
+
 export interface CreateOrderPayload {
   contact: CreateOrderContact;
   delivery: CreateOrderDelivery;
-  payment: { method: PaymentMethod };
+  payment: { method: PaymentMethod; card?: OrderCardPayload };
   items: OrderItemInput[];
   couponCode?: string;
   affiliateRef?: string;
@@ -429,6 +440,9 @@ export interface CreateOrderResponse {
   pixQrCode?: string;
   pixExternalId?: string;
   pixExpiresAt?: string;
+  // Presente só no pagamento com cartão (Mercado Pago). PAID = aprovado na hora;
+  // PENDING = em análise/3DS (o webhook confirma depois).
+  payment?: { method: string; status: "PAID" | "PENDING" };
 }
 
 export type OrderStatus =

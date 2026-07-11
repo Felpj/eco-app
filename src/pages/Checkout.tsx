@@ -22,12 +22,14 @@ import {
   validateOrderStock,
   type CheckoutBump,
   type CreateOrderPayload,
+  type OrderCardPayload,
   type PaymentMethod,
   type ShippingMethodId,
   type ShippingQuoteOption,
 } from "@/lib/api";
 import { CheckoutBumpModal } from "@/components/upsell/CheckoutBumpModal";
 import { getAffiliateSessionId } from "@/lib/affiliate-tracking";
+import { isMercadoPagoConfigured } from "@/lib/mercadopago";
 import { toast } from "@/hooks/use-toast";
 
 // Revisão e pagamento são o MESMO step: revisa tudo, escolhe o método e confirma.
@@ -39,9 +41,11 @@ const steps = [
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { items, clearCart, getSubtotal } = useCartStore();
+  const { items, clearCart, getSubtotal, getTotalPrice } = useCartStore();
   const { draft, updateDraft, clearDraft } = useCheckoutDraft();
   const cartProductIds = items.map((item) => item.product.id);
+  // Cartão via Mercado Pago (dark-launch): só ativa quando a public key existe.
+  const mpConfigured = isMercadoPagoConfigured();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -247,7 +251,10 @@ const Checkout = () => {
     await submitOrder(null);
   };
 
-  const submitOrder = async (upsell: CheckoutBump | null) => {
+  const submitOrder = async (
+    upsell: CheckoutBump | null,
+    cardData?: OrderCardPayload,
+  ) => {
     if (!contactData || !shippingData) return;
     if (isSubmitting) return;
 
@@ -294,9 +301,9 @@ const Checkout = () => {
           shippingMethodId:
             shippingData.shippingMethod === "express" ? "EXPRESS_24H" : "STANDARD",
         },
-        payment: {
-          method: paymentMethod.toUpperCase() as PaymentMethod,
-        },
+        payment: cardData
+          ? { method: "CARD" as PaymentMethod, card: cardData }
+          : { method: paymentMethod.toUpperCase() as PaymentMethod },
         items: finalItems,
         couponCode: couponCode || undefined,
         upsellOfferId: upsell?.offerId,
@@ -334,10 +341,16 @@ const Checkout = () => {
         setSubmitError(msg);
         toast({ title: "Erro no pedido", description: msg, variant: "destructive" });
       }
+      // Cartão: o Brick precisa da REJEIÇÃO da promise pra reabilitar o form e
+      // deixar o cliente tentar de novo (ex.: recusa 422 → outro cartão/parcela).
+      if (cardData) throw err;
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Submit do cartão vem do botão do próprio Brick (não passa pelo order bump).
+  const handleCardSubmit = (cardData: OrderCardPayload) => submitOrder(null, cardData);
 
   const handleBack = () => {
     setDirection(-1);
@@ -400,6 +413,9 @@ const Checkout = () => {
               onPaymentMethodChange={setPaymentMethod}
               shippingPrice={chosenShippingPrice}
               onAcceptTerms={setAcceptTerms}
+              mpConfigured={mpConfigured}
+              payerEmail={contactData.email || undefined}
+              onCardSubmit={handleCardSubmit}
             />
           )
         );
@@ -493,6 +509,11 @@ const Checkout = () => {
                     Continuar
                     <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </button>
+                ) : paymentMethod === "card" && mpConfigured ? (
+                  // Cartão: o pagamento é confirmado pelo botão do próprio Brick.
+                  <span className="text-sm text-muted-foreground font-body text-right max-w-[16rem]">
+                    Preencha os dados do cartão acima para concluir o pagamento.
+                  </span>
                 ) : (
                   <button
                     onClick={handleFinalSubmit}

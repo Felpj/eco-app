@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrCode, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CardPaymentBrick } from "./CardPaymentBrick";
+import type { OrderCardPayload } from "@/lib/api";
 
 export type PaymentMethodChoice = "pix" | "card";
 
@@ -19,6 +21,10 @@ interface OrderReviewProps {
   onPaymentMethodChange: (method: PaymentMethodChoice) => void;
   shippingPrice: number;
   onAcceptTerms?: (accepted: boolean) => void;
+  // Cartão via Mercado Pago (dark-launch): só habilita quando há public key.
+  mpConfigured?: boolean;
+  payerEmail?: string;
+  onCardSubmit?: (data: OrderCardPayload) => Promise<void>;
 }
 
 export const OrderReview = ({
@@ -28,6 +34,9 @@ export const OrderReview = ({
   onPaymentMethodChange,
   shippingPrice,
   onAcceptTerms,
+  mpConfigured = false,
+  payerEmail,
+  onCardSubmit,
 }: OrderReviewProps) => {
   const { items, getSubtotal, getDiscountTotal, getTotalPrice } = useCartStore();
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -166,25 +175,72 @@ export const OrderReview = ({
             </div>
           </div>
 
-          <div
-            className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
-            aria-disabled
-          >
-            <RadioGroupItem value="card" id="pay-card" disabled />
-            <CreditCard className="w-5 h-5 text-muted-foreground" />
-            <div className="flex-1">
-              <Label
-                htmlFor="pay-card"
-                className="font-body font-semibold text-foreground"
-              >
-                Cartão de Crédito
-              </Label>
-              <p className="text-sm text-muted-foreground font-body">
-                Em breve
-              </p>
+          {mpConfigured ? (
+            <div
+              onClick={() => onPaymentMethodChange("card")}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                paymentMethod === "card"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card hover:border-primary/50"
+              )}
+            >
+              <RadioGroupItem value="card" id="pay-card" />
+              <CreditCard
+                className={cn(
+                  "w-5 h-5",
+                  paymentMethod === "card" ? "text-primary" : "text-muted-foreground"
+                )}
+              />
+              <div className="flex-1">
+                <Label
+                  htmlFor="pay-card"
+                  className="font-body font-semibold text-foreground cursor-pointer"
+                >
+                  Cartão de Crédito
+                </Label>
+                <p className="text-sm text-muted-foreground font-body">
+                  Em até 12x — dados protegidos pelo Mercado Pago
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
+              aria-disabled
+            >
+              <RadioGroupItem value="card" id="pay-card" disabled />
+              <CreditCard className="w-5 h-5 text-muted-foreground" />
+              <div className="flex-1">
+                <Label
+                  htmlFor="pay-card"
+                  className="font-body font-semibold text-foreground"
+                >
+                  Cartão de Crédito
+                </Label>
+                <p className="text-sm text-muted-foreground font-body">
+                  Em breve
+                </p>
+              </div>
+            </div>
+          )}
         </RadioGroup>
+
+        {mpConfigured && paymentMethod === "card" && onCardSubmit && (
+          <div className="mt-4">
+            {acceptTerms ? (
+              <CardPaymentBrick
+                amount={total}
+                payerEmail={payerEmail}
+                onCardSubmit={onCardSubmit}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground font-body p-4 rounded-lg border border-dashed border-border">
+                Aceite os termos abaixo para pagar com cartão.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary */}
