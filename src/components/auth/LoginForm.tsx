@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth.store";
 import { loginCustomer, ApiError } from "@/lib/api";
+import { safeInternalPath } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
@@ -59,8 +60,9 @@ export const LoginForm = () => {
         description: `Bem-vindo de volta${res.user.fullName ? `, ${res.user.fullName.split(" ")[0]}` : ""}.`,
       });
 
-      const next =
-        searchParams.get("next") || searchParams.get("from") || "/conta";
+      const next = safeInternalPath(
+        searchParams.get("next") || searchParams.get("from"),
+      );
       navigate(next);
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;

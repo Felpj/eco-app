@@ -169,7 +169,7 @@ const Header = () => {
             </button>
 
             <Link
-              to="/entrar"
+              to="/conta"
               aria-label="Minha conta"
               className="text-muted-foreground hover:text-gold transition-colors duration-200 p-1"
             >
@@ -285,7 +285,7 @@ const Header = () => {
                 className="pt-4 mt-2 border-t border-[var(--glass-border)] flex items-center gap-4"
               >
                 <Link
-                  to="/entrar"
+                  to="/conta"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gold transition-colors"
                 >
