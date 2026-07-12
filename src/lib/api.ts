@@ -445,21 +445,19 @@ export interface CreateOrderResponse {
   payment?: { method: string; status: "PAID" | "PENDING" };
 }
 
+// Espelha o enum OrderStatus do back (eco-back prisma/schema.prisma).
 export type OrderStatus =
-  | "PENDING"
+  | "DRAFT"
+  | "PENDING_PAYMENT"
   | "PAID"
+  | "FULFILLING"
+  | "SHIPPED"
+  | "DELIVERED"
   | "CANCELLED"
-  | "REFUNDED"
-  | "EXPIRED"
-  | "FULFILLED";
+  | "REFUNDED";
 
-export type PaymentStatus =
-  | "PENDING"
-  | "PAID"
-  | "FAILED"
-  | "REFUNDED"
-  | "CANCELLED"
-  | "EXPIRED";
+// Espelha o enum PaymentStatus do back.
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
 
 export interface OrderPaymentSummary {
   id: string;

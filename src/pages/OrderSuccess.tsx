@@ -20,6 +20,7 @@ import {
   type OrderStatus,
   type CreateOrderResponse,
 } from "@/lib/api";
+import { pixQrImageSrc } from "@/lib/pix";
 
 // Estado vindo via navigate state do Checkout (slice 2). Pode não estar presente
 // se o usuário recarregar a página — nesse caso só GET /orders/:orderCode.
@@ -83,10 +84,11 @@ const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 min
 const DEFAULT_PIX_TTL_MS = 30 * 60 * 1000; // 30 min fallback se backend não devolver expiresAt
 const TERMINAL_STATUSES: ReadonlySet<OrderStatus> = new Set([
   "PAID",
+  "FULFILLING",
+  "SHIPPED",
+  "DELIVERED",
   "CANCELLED",
   "REFUNDED",
-  "EXPIRED",
-  "FULFILLED",
 ]);
 
 function formatBRL(v: number): string {
@@ -107,8 +109,14 @@ const OrderSuccess = () => {
   const initialOrder = (location.state as { order?: LocationStateOrder } | null)?.order ?? null;
 
   const [order, setOrder] = useState<OrderDetailResponse | null>(null);
-  const [pixQrCode, setPixQrCode] = useState<string | null>(
+  // A imagem do QR (base64/data-URI) e o copia-e-cola EMV vêm em campos
+  // separados do back — não colapsar num só (a imagem NÃO serve pra copiar,
+  // o EMV NÃO serve como <img src>).
+  const [pixImage, setPixImage] = useState<string | null>(
     initialOrder?.pixQrCode ?? null,
+  );
+  const [pixCopiaECola, setPixCopiaECola] = useState<string | null>(
+    initialOrder?.paymentString ?? null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -143,11 +151,10 @@ const OrderSuccess = () => {
     const pendingPix = fresh.payments.find(
       (p) => p.method === "PIX" && p.status === "PENDING",
     );
-    if (pendingPix?.pixQrCode) {
-      setPixQrCode(pendingPix.pixQrCode);
-    } else if (pendingPix?.paymentString) {
-      setPixQrCode(pendingPix.paymentString);
-    }
+    // Só sobrescreve quando o GET traz o campo — não apaga o valor que veio do
+    // navigate state se um refresh de polling vier sem os dados PIX.
+    if (pendingPix?.pixQrCode) setPixImage(pendingPix.pixQrCode);
+    if (pendingPix?.paymentString) setPixCopiaECola(pendingPix.paymentString);
     return fresh;
   }, [orderCode]);
 
@@ -219,27 +226,38 @@ const OrderSuccess = () => {
     };
   }, []);
 
-  // Partículas ao confirmar PAID
+  // Partículas ao confirmar pagamento
   useEffect(() => {
-    if (order?.status === "PAID" || order?.status === "FULFILLED") {
+    if (
+      order?.status === "PAID" ||
+      order?.status === "FULFILLING" ||
+      order?.status === "SHIPPED" ||
+      order?.status === "DELIVERED"
+    ) {
       const t = setTimeout(() => setParticleTrigger(true), 250);
       return () => clearTimeout(t);
     }
   }, [order?.status]);
 
   const status: OrderStatus | null = order?.status ?? null;
-  const isPaid = status === "PAID" || status === "FULFILLED";
-  const isPending = status === "PENDING";
+  const isPaid =
+    status === "PAID" ||
+    status === "FULFILLING" ||
+    status === "SHIPPED" ||
+    status === "DELIVERED";
+  // O back não tem status "PENDING" nem "EXPIRED": PIX aguardando = PENDING_PAYMENT;
+  // expiração é derivada do tempo (pixExpiredByTime/pollTimedOut), não de enum.
+  const isPending = status === "PENDING_PAYMENT";
   const isCancelled = status === "CANCELLED" || status === "REFUNDED";
-  const isExpired = status === "EXPIRED";
 
   const msLeft = pixExpiresAtMs - now;
   const pixExpiredByTime = msLeft <= 0;
+  const pixImageSrc = pixQrImageSrc(pixImage, pixCopiaECola);
 
   const handleCopyPix = async () => {
-    if (!pixQrCode) return;
+    if (!pixCopiaECola) return;
     try {
-      await navigator.clipboard.writeText(pixQrCode);
+      await navigator.clipboard.writeText(pixCopiaECola);
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch {
@@ -336,7 +354,7 @@ const OrderSuccess = () => {
                       <GoldParticles trigger={particleTrigger} />
                     </div>
                   </motion.div>
-                ) : isCancelled || isExpired || pollTimedOut || pixExpiredByTime ? (
+                ) : isCancelled || pollTimedOut || pixExpiredByTime ? (
                   <motion.div
                     key="failed"
                     variants={itemVariants}
@@ -370,7 +388,7 @@ const OrderSuccess = () => {
                     ? "Pedido Confirmado!"
                     : isCancelled
                     ? "Pedido cancelado"
-                    : isExpired || pollTimedOut || pixExpiredByTime
+                    : pollTimedOut || pixExpiredByTime
                     ? "Pedido expirou"
                     : "Aguardando pagamento"}
                 </h1>
@@ -379,7 +397,7 @@ const OrderSuccess = () => {
                     ? "Obrigado pela sua compra na ESSENCE Árabe"
                     : isCancelled
                     ? "Este pedido não está mais ativo."
-                    : isExpired || pollTimedOut || pixExpiredByTime
+                    : pollTimedOut || pixExpiredByTime
                     ? "O tempo para pagamento esgotou — gere um novo pedido."
                     : "Pague com PIX para confirmar seu pedido."}
                 </p>
@@ -391,8 +409,8 @@ const OrderSuccess = () => {
                 </div>
               </motion.div>
 
-              {/* PIX block — só enquanto PENDING e não expirou */}
-              {isPending && !pixExpiredByTime && !pollTimedOut && pixQrCode && (
+              {/* PIX block — só enquanto PENDING_PAYMENT e não expirou */}
+              {isPending && !pixExpiredByTime && !pollTimedOut && pixImageSrc && (
                 <motion.div variants={itemVariants} className="w-full glass rounded-2xl p-6 mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-display font-semibold text-foreground text-sm uppercase tracking-widest">
@@ -409,13 +427,12 @@ const OrderSuccess = () => {
 
                   <div className="flex flex-col items-center">
                     <div className="bg-white p-3 rounded-xl mb-4">
-                      {/* Fase 1 fallback: CDN api.qrserver.com.
-                          Pendência Fase 2: substituir por lib local (ex.: qrcode.react)
-                          pra evitar dependência de terceiro/CDN. */}
+                      {/* A imagem do QR já vem pronta do provider (MP: base64
+                          de PNG; TCR: data-URI) — renderiza direto, sem CDN de
+                          terceiro. Fallback (só EMV) monta via qrserver dentro
+                          de pixQrImageSrc. */}
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=0&data=${encodeURIComponent(
-                          pixQrCode,
-                        )}`}
+                        src={pixImageSrc}
                         alt="QR Code PIX"
                         width={260}
                         height={260}
