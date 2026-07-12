@@ -21,6 +21,7 @@ import {
   type CreateOrderResponse,
 } from "@/lib/api";
 import { pixQrImageSrc } from "@/lib/pix";
+import { useAuthStore } from "@/store/auth.store";
 
 // Estado vindo via navigate state do Checkout (slice 2). Pode não estar presente
 // se o usuário recarregar a página — nesse caso só GET /orders/:orderCode.
@@ -107,6 +108,10 @@ const OrderSuccess = () => {
   const orderCode = orderId ?? "";
   const location = useLocation();
   const initialOrder = (location.state as { order?: LocationStateOrder } | null)?.order ?? null;
+  // Atalho "Ver meus pedidos" só pra logado — /conta/pedidos é rota autenticada
+  // (mesmo sinal do ProtectedRoute); guest cairia no login e o pedido dele nem
+  // aparece lá (customer_user_id NULL).
+  const isAuthenticated = useAuthStore((s) => s.session.isAuthenticated);
 
   const [order, setOrder] = useState<OrderDetailResponse | null>(null);
   // A imagem do QR (base64/data-URI) e o copia-e-cola EMV vêm em campos
@@ -540,6 +545,24 @@ const OrderSuccess = () => {
                   </div>
                 </div>
               </motion.div>
+
+              {/* Atalho pra Meus Pedidos — só logado (rota autenticada) */}
+              {isAuthenticated && (
+                <motion.div variants={itemVariants} className="w-full mb-3">
+                  <Link
+                    to="/conta/pedidos"
+                    className="w-full group glass rounded-xl py-4 text-sm font-body font-semibold
+                      text-foreground border border-[var(--glass-border)]
+                      flex items-center justify-center gap-2
+                      hover:border-gold/30 hover:text-gold
+                      transition-all duration-200"
+                  >
+                    <Package className="w-4 h-4" />
+                    Ver meus pedidos
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  </Link>
+                </motion.div>
+              )}
 
               {/* CTAs */}
               <motion.div variants={itemVariants} className="w-full flex flex-col sm:flex-row gap-3">
