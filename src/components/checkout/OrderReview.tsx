@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useCartStore } from "@/store/cart.store";
 import { formatMoney } from "@/lib/money";
 import { ContactFormData } from "./ContactStep";
@@ -20,7 +19,12 @@ interface OrderReviewProps {
   paymentMethod: PaymentMethodChoice;
   onPaymentMethodChange: (method: PaymentMethodChoice) => void;
   shippingPrice: number;
+  // Aceite dos termos é controlado pelo Checkout (fonte única) — o gate de
+  // submit lê o MESMO valor que o checkbox mostra.
+  acceptTerms: boolean;
   onAcceptTerms?: (accepted: boolean) => void;
+  // Order bump já decidido na entrada da etapa: reflete no total e no Brick.
+  bumpItem?: { name: string; price: number } | null;
   // Cartão via Mercado Pago (dark-launch): só habilita quando há public key.
   mpConfigured?: boolean;
   payerEmail?: string;
@@ -33,23 +37,22 @@ export const OrderReview = ({
   paymentMethod,
   onPaymentMethodChange,
   shippingPrice,
+  acceptTerms,
   onAcceptTerms,
+  bumpItem,
   mpConfigured = false,
   payerEmail,
   onCardSubmit,
 }: OrderReviewProps) => {
   const { items, getSubtotal, getDiscountTotal, getTotalPrice } = useCartStore();
-  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const subtotal = getSubtotal();
   const discount = getDiscountTotal();
-  const total = getTotalPrice() + shippingPrice;
+  const bumpPrice = bumpItem?.price ?? 0;
+  const total = getTotalPrice() + shippingPrice + bumpPrice;
 
   const handleTermsChange = (checked: boolean) => {
-    setAcceptTerms(checked);
-    if (onAcceptTerms) {
-      onAcceptTerms(checked);
-    }
+    onAcceptTerms?.(checked);
   };
 
   const shippingMethodLabel =
@@ -228,15 +231,17 @@ export const OrderReview = ({
 
         {mpConfigured && paymentMethod === "card" && onCardSubmit && (
           <div className="mt-4">
-            {acceptTerms ? (
-              <CardPaymentBrick
-                amount={total}
-                payerEmail={payerEmail}
-                onCardSubmit={onCardSubmit}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground font-body p-4 rounded-lg border border-dashed border-border">
-                Aceite os termos abaixo para pagar com cartão.
+            {/* Brick sempre visível — o cliente preenche o cartão à vontade. O
+                aceite dos termos gateia o SUBMIT (rejeitado no onSubmit se não
+                marcado), não a renderização. */}
+            <CardPaymentBrick
+              amount={total}
+              payerEmail={payerEmail}
+              onCardSubmit={onCardSubmit}
+            />
+            {!acceptTerms && (
+              <p className="mt-2 text-xs text-muted-foreground font-body">
+                Marque o aceite dos termos abaixo para concluir o pagamento.
               </p>
             )}
           </div>
@@ -259,6 +264,12 @@ export const OrderReview = ({
           <span>Frete</span>
           <span>{formatMoney(shippingPrice)}</span>
         </div>
+        {bumpItem && (
+          <div className="flex justify-between text-foreground font-body">
+            <span className="truncate pr-2">+ {bumpItem.name}</span>
+            <span>{formatMoney(bumpItem.price)}</span>
+          </div>
+        )}
         <div className="border-t border-border pt-3">
           <div className="flex justify-between">
             <span className="text-foreground font-body font-semibold">

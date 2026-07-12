@@ -77,7 +77,9 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>(
     draft?.payment?.method === "CARD" ? "card" : "pix"
   );
-  const [acceptTerms, setAcceptTerms] = useState(draft?.acceptTerms || false);
+  // Consentimento FRESCO a cada checkout (não hidrata do draft) — o aceite
+  // gateia PIX (botão) e cartão (onSubmit do Brick); precisa ser explícito agora.
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   // Slice 2: estado para shipping quote, validações e submit
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[] | null>(null);
@@ -92,6 +94,9 @@ const Checkout = () => {
   const [bump, setBump] = useState<CheckoutBump | null>(null);
   const [bumpModalOpen, setBumpModalOpen] = useState(false);
   const [bumpShown, setBumpShown] = useState(false);
+  // Bump decidido ANTES do pagamento (ao entrar na etapa 3): entra no pedido e
+  // reflete no total exibido + no amount do Brick (valor final antes de pagar).
+  const [acceptedBump, setAcceptedBump] = useState<CheckoutBump | null>(null);
 
   // Idempotency-Key gerado 1× no mount; reusado em retries.
   // Reset acontece via mudança de chave (key na rota) ou unmount (volta pra cart).
@@ -118,6 +123,17 @@ const Checkout = () => {
     };
   }, []);
 
+  // Order bump: oferece UMA vez ao chegar na etapa de pagamento (índice 2),
+  // igual pra PIX e cartão. Decidido aqui, o valor fica final ANTES do Brick
+  // montar (parcelas do cartão calculadas sobre o total já com o bump).
+  const bumpInCart = bump ? cartProductIds.includes(bump.product.id) : false;
+  useEffect(() => {
+    if (currentStep === 2 && bump && !bumpShown && !bumpInCart) {
+      setBumpShown(true);
+      setBumpModalOpen(true);
+    }
+  }, [currentStep, bump, bumpShown, bumpInCart]);
+
   // Items canonicos (productId + qty) — referência estável p/ effects
   const orderItems = useMemo(
     () => items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
@@ -128,12 +144,16 @@ const Checkout = () => {
     [orderItems],
   );
 
+  // Marca que um pedido foi criado e estamos indo pro /pedido. O effect de
+  // carrinho-vazio abaixo NÃO pode disparar nesse caso — senão rouba a navegação
+  // quando o clearCart esvazia o carrinho. Ref (síncrono, imune ao batching do
+  // React) porque o guard isSubmitting sozinho não segura: ele reseta no MESMO
+  // tick do clearCart, então o effect ainda enxerga carrinho vazio + submit=false.
+  const placedOrderRef = useRef(false);
+
   // Redirect empty cart in useEffect (never during render — causes "Cannot update component while rendering")
-  // Guard isSubmitting: no sucesso o clearCart() esvazia o carrinho ANTES do
-  // navigate pro /pedido — sem o guard este effect roubava a navegação e
-  // jogava o usuário no /carrinho vazio em vez da página do pedido.
   useEffect(() => {
-    if (items.length === 0 && !isSubmitting) {
+    if (items.length === 0 && !isSubmitting && !placedOrderRef.current) {
       navigate("/carrinho");
     }
   }, [items.length, isSubmitting, navigate]);
@@ -178,6 +198,11 @@ const Checkout = () => {
   const chosenShippingPrice =
     shippingQuotes?.find((o) => o.id === chosenShippingId)?.price ??
     (shippingData?.shippingMethod === "express" ? 15 : 10);
+
+  // Reflete o bump aceito em todos os resumos (OrderReview + sticky) e no Brick.
+  const bumpSummaryItem = acceptedBump
+    ? { name: acceptedBump.product.name, price: acceptedBump.product.specialPrice }
+    : null;
 
   const handleContactSubmit = (data: ContactFormData) => {
     setContactData(data);
@@ -231,24 +256,20 @@ const Checkout = () => {
       }
       return;
     }
-    // Order bump: intercepta o clique UMA vez (se há bump e o produto ainda não está
-    // no carrinho). Aceitar/recusar seguem pro submitOrder.
-    if (bump && !bumpShown && !cartProductIds.includes(bump.product.id)) {
-      setBumpShown(true);
-      setBumpModalOpen(true);
-      return;
-    }
-    await submitOrder(null);
+    // O bump já foi oferecido ao entrar na etapa — acceptedBump reflete a escolha.
+    await submitOrder(acceptedBump);
   };
 
-  const handleBumpAccept = async () => {
+  // Aceitar/recusar o bump apenas REGISTRA a escolha (o submit real vem depois,
+  // no botão de PIX ou no do Brick) — assim o valor fica final antes de pagar.
+  const handleBumpAccept = () => {
+    setAcceptedBump(bump);
     setBumpModalOpen(false);
-    await submitOrder(bump);
   };
 
-  const handleBumpDecline = async () => {
+  const handleBumpDecline = () => {
+    setAcceptedBump(null);
     setBumpModalOpen(false);
-    await submitOrder(null);
   };
 
   const submitOrder = async (
@@ -316,8 +337,10 @@ const Checkout = () => {
         affiliateSessionId,
       );
 
-      // navigate ANTES de limpar o carrinho: navigate de componente
-      // desmontado é no-op no react-router (ver guard do effect acima).
+      // Marca ANTES de qualquer navigate/clear (síncrono) pra travar o effect
+      // de carrinho-vazio. navigate antes do clearCart (o clearCart esvazia o
+      // carrinho e desmonta o Checkout; navigate de componente desmontado é no-op).
+      placedOrderRef.current = true;
       navigate(`/pedido/${order.orderCode}`);
       clearCart();
       clearDraft();
@@ -349,8 +372,23 @@ const Checkout = () => {
     }
   };
 
-  // Submit do cartão vem do botão do próprio Brick (não passa pelo order bump).
-  const handleCardSubmit = (cardData: OrderCardPayload) => submitOrder(null, cardData);
+  // Submit do cartão vem do botão do próprio Brick. O aceite dos termos gateia
+  // AQUI: se não marcado, REJEITA a promise → o Brick reabilita o form e NENHUM
+  // pedido é criado. O bump já foi decidido na entrada da etapa (acceptedBump).
+  const handleCardSubmit = async (cardData: OrderCardPayload) => {
+    if (!acceptTerms) {
+      const termsCheckbox = document.getElementById("accept-terms");
+      termsCheckbox?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({
+        title: "Aceite os termos",
+        description:
+          "Marque o aceite dos termos de uso para concluir o pagamento com cartão.",
+        variant: "destructive",
+      });
+      throw new Error("terms-not-accepted");
+    }
+    return submitOrder(acceptedBump, cardData);
+  };
 
   const handleBack = () => {
     setDirection(-1);
@@ -412,7 +450,9 @@ const Checkout = () => {
               paymentMethod={paymentMethod}
               onPaymentMethodChange={setPaymentMethod}
               shippingPrice={chosenShippingPrice}
+              acceptTerms={acceptTerms}
               onAcceptTerms={setAcceptTerms}
+              bumpItem={bumpSummaryItem}
               mpConfigured={mpConfigured}
               payerEmail={contactData.email || undefined}
               onCardSubmit={handleCardSubmit}
@@ -480,7 +520,7 @@ const Checkout = () => {
 
               {/* Mobile Order Summary */}
               <div className="lg:hidden mb-6">
-                <OrderSummarySticky shipping={chosenShippingPrice} />
+                <OrderSummarySticky shipping={chosenShippingPrice} bumpItem={bumpSummaryItem} />
               </div>
 
               {/* Navigation Buttons */}
@@ -573,7 +613,7 @@ const Checkout = () => {
 
             {/* Right Column - Order Summary */}
             <div className="hidden lg:block lg:col-span-1">
-              <OrderSummarySticky shipping={chosenShippingPrice} />
+              <OrderSummarySticky shipping={chosenShippingPrice} bumpItem={bumpSummaryItem} />
               {isQuotingShipping && (
                 <p className="mt-2 text-xs text-muted-foreground/60 font-body text-center">
                   Calculando frete...
