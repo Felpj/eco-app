@@ -1,47 +1,34 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Package, Truck, CheckCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  MessageCircle,
+  Package,
+  Truck,
+  CheckCircle,
+  ExternalLink,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import {
   getOrderByCode,
   type OrderDetailResponse,
   ApiError,
 } from "@/lib/api";
+import {
+  orderStatusColor,
+  orderStatusLabel,
+  orderTimeline,
+} from "@/lib/order-status";
 import { handleAuthError } from "@/lib/auth-guard";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "PENDING":
-    case "PENDING_PAYMENT":
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/25";
-    case "PAID":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
-    case "FULFILLED":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
-    case "CANCELLED":
-    case "EXPIRED":
-      return "bg-red-500/15 text-red-400 border-red-500/25";
-    case "REFUNDED":
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/25";
-    default:
-      return "bg-[#111] text-muted-foreground border-[var(--glass-border)]";
-  }
-};
-
-const statusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    PENDING: "Aguardando pagamento",
-    PENDING_PAYMENT: "Aguardando pagamento",
-    PAID: "Pago",
-    CANCELLED: "Cancelado",
-    REFUNDED: "Reembolsado",
-    EXPIRED: "Expirado",
-    FULFILLED: "Entregue",
-  };
-  return map[status] || status;
-};
+const STEP_ICONS = {
+  CONFIRMED: CheckCircle,
+  PAID: Package,
+  SHIPPED: Truck,
+  DELIVERED: CheckCircle,
+} as const;
 
 const OrderDetails = () => {
   const { orderCode } = useParams();
@@ -120,32 +107,15 @@ const OrderDetails = () => {
   const whatsappMessage = `Oi! Gostaria de informações sobre meu pedido ${order.orderCode}.`;
   const whatsappUrl = `https://wa.me/5518996718769?text=${encodeURIComponent(whatsappMessage)}`;
 
-  // Timeline derivada do status do backend (sem "EM_SEPARACAO"/"ENVIADO"
-  // separados no contrato atual — colapsa em PAID → FULFILLED)
-  const timelineSteps = [
-    {
-      key: "CONFIRMED",
-      label: "Pedido Confirmado",
-      icon: CheckCircle,
-      completed: true,
-    },
-    {
-      key: "PAID",
-      label: "Pagamento Aprovado",
-      icon: Package,
-      completed: ["PAID", "FULFILLED"].includes(order.status),
-    },
-    {
-      key: "FULFILLED",
-      label: "Enviado / Entregue",
-      icon: Truck,
-      completed: order.status === "FULFILLED",
-    },
-  ];
+  // Timeline alinhada ao enum real (PAID → FULFILLING → SHIPPED → DELIVERED).
+  const timelineSteps = orderTimeline(order.status).map((step) => ({
+    ...step,
+    icon: STEP_ICONS[step.key],
+  }));
 
   const isPendingPayment =
-    order.status === "PENDING" ||
-    (order as { status: string }).status === "PENDING_PAYMENT";
+    order.status === "PENDING_PAYMENT" ||
+    (order as { status: string }).status === "PENDING";
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)]">
@@ -182,10 +152,10 @@ const OrderDetails = () => {
             <span
               className={cn(
                 "self-start text-sm font-body font-semibold px-4 py-1.5 rounded-full border",
-                getStatusColor(order.status),
+                orderStatusColor(order.status),
               )}
             >
-              {statusLabel(order.status)}
+              {orderStatusLabel(order.status)}
             </span>
           </motion.div>
 
@@ -267,6 +237,41 @@ const OrderDetails = () => {
                 })}
               </div>
             </div>
+
+            {order.tracking && (
+              <div className="glass rounded-2xl p-6">
+                <h2 className="font-display text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-gold" />
+                  Rastreio da Entrega
+                </h2>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="min-w-0">
+                    {order.tracking.carrier && (
+                      <p className="text-xs text-muted-foreground/60 font-body mb-1">
+                        {order.tracking.carrier}
+                      </p>
+                    )}
+                    <p className="font-mono text-sm font-semibold text-foreground break-all">
+                      {order.tracking.code}
+                    </p>
+                  </div>
+                  {order.tracking.url && (
+                    <a
+                      href={order.tracking.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shine-effect inline-flex items-center justify-center gap-2 bg-gradient-gold text-[#080808]
+                        font-body font-bold py-2.5 px-5 rounded-xl text-sm shrink-0
+                        hover:-translate-y-0.5 hover:shadow-gold-sm
+                        transition-all duration-250 ease-expo-out whitespace-nowrap"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Rastrear pedido
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="glass rounded-2xl p-6">
               <h2 className="font-display text-base font-semibold text-foreground mb-5">

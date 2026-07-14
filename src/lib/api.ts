@@ -468,6 +468,13 @@ export interface OrderPaymentSummary {
   pixQrCode?: string;
 }
 
+// Rastreio que o lojista preenche no painel. Só vem quando há código.
+export interface OrderTracking {
+  carrier: string | null;
+  code: string;
+  url: string | null;
+}
+
 export interface OrderDetailResponse {
   orderCode: string;
   status: OrderStatus;
@@ -475,6 +482,7 @@ export interface OrderDetailResponse {
   discount: number;
   shippingCost: number;
   total: number;
+  tracking: OrderTracking | null;
   items: {
     productId: string;
     name: string;
@@ -739,6 +747,7 @@ export interface OrdersListItem {
   discount?: number;
   shippingCost?: number;
   createdAt: string;
+  tracking?: OrderTracking | null;
   itemsCount?: number;
   items?: {
     productId: string;

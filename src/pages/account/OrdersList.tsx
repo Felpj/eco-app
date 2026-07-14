@@ -3,44 +3,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Package, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { getMyOrders, type OrdersListItem } from "@/lib/api";
+import { orderStatusColor, orderStatusLabel } from "@/lib/order-status";
 import { handleAuthError } from "@/lib/auth-guard";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "PENDING":
-    case "PENDING_PAYMENT":
-    case "CONFIRMADO":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/25";
-    case "PAID":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
-    case "FULFILLED":
-    case "ENTREGUE":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
-    case "CANCELLED":
-    case "CANCELADO":
-    case "EXPIRED":
-      return "bg-red-500/15 text-red-400 border-red-500/25";
-    case "REFUNDED":
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/25";
-    default:
-      return "bg-[#111] text-muted-foreground border-[var(--glass-border)]";
-  }
-};
-
-const statusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    PENDING: "Aguardando pagamento",
-    PENDING_PAYMENT: "Aguardando pagamento",
-    PAID: "Pago",
-    CANCELLED: "Cancelado",
-    REFUNDED: "Reembolsado",
-    EXPIRED: "Expirado",
-    FULFILLED: "Entregue",
-  };
-  return map[status] || status.replace("_", " ");
-};
 
 const LIMIT = 10;
 
@@ -156,10 +122,10 @@ const OrdersList = () => {
                           <span
                             className={cn(
                               "text-[10px] font-body font-semibold px-2 py-0.5 rounded-full border",
-                              getStatusColor(order.status),
+                              orderStatusColor(order.status),
                             )}
                           >
-                            {statusLabel(order.status)}
+                            {orderStatusLabel(order.status)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground/50 font-body">
