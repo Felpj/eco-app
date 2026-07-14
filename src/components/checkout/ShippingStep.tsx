@@ -11,6 +11,7 @@ import { formatCEP, isValidCEP } from "@/lib/validators";
 import { Truck, Package, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
+import { freeShippingBar } from "@/lib/free-shipping";
 import {
   getAddressByCep,
   getMyAddresses,
@@ -41,6 +42,8 @@ interface ShippingStepProps {
   quotes?: ShippingQuoteOption[] | null;
   isQuoting?: boolean;
   onCepChange?: (cep: string) => void;
+  freeShippingThreshold?: number | null;
+  amountToFreeShipping?: number | null;
 }
 
 // Labels/ícones fixos; preço real vem da quote (fallback = flat do server).
@@ -69,6 +72,8 @@ export const ShippingStep = ({
   quotes,
   isQuoting,
   onCepChange,
+  freeShippingThreshold,
+  amountToFreeShipping,
 }: ShippingStepProps) => {
   const isAuthenticated = useAuthStore((s) => s.session.isAuthenticated);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
@@ -79,6 +84,11 @@ export const ShippingStep = ({
   );
   const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
   const [saveNewAddress, setSaveNewAddress] = useState(true);
+
+  const freeBar = freeShippingBar(
+    freeShippingThreshold ?? null,
+    amountToFreeShipping ?? null,
+  );
 
   const {
     register,
@@ -447,6 +457,28 @@ export const ShippingStep = ({
         </>
       )}
 
+      {/* Barra de frete grátis (só quando a loja oferece e a quote já veio) */}
+      {freeBar && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          {freeBar.reached ? (
+            <p className="text-sm font-body font-semibold text-primary">
+              🎉 Você ganhou frete grátis!
+            </p>
+          ) : (
+            <p className="text-sm font-body text-foreground">
+              Faltam <strong>{formatMoney(freeBar.remaining)}</strong> pra ganhar
+              frete grátis
+            </p>
+          )}
+          <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${Math.round(freeBar.progress * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Shipping Method */}
       <div>
         <Label className="text-foreground font-body mb-4 block">
@@ -483,7 +515,7 @@ export const ShippingStep = ({
                       htmlFor={option.id}
                       className="font-body font-semibold text-foreground cursor-pointer"
                     >
-                      {option.label}
+                      {quote?.label ?? option.label}
                     </Label>
                     <span className="text-primary font-body font-bold">
                       {isQuoting

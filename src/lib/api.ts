@@ -338,8 +338,9 @@ export interface ShippingQuoteOption {
 
 export interface ShippingQuoteResponse {
   options: ShippingQuoteOption[];
-  freeShippingThreshold: number;
-  amountToFreeShipping: number;
+  // null quando a loja desativou o frete grátis.
+  freeShippingThreshold: number | null;
+  amountToFreeShipping: number | null;
 }
 
 export async function quoteShipping(payload: {

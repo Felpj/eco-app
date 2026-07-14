@@ -84,6 +84,11 @@ const Checkout = () => {
   // Slice 2: estado para shipping quote, validações e submit
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[] | null>(null);
   const [isQuotingShipping, setIsQuotingShipping] = useState(false);
+  // Frete grátis vindo da quote (null quando a loja desativou) — alimenta a barra.
+  const [shippingFree, setShippingFree] = useState<{
+    threshold: number | null;
+    amount: number | null;
+  }>({ threshold: null, amount: null });
   const [stockErrors, setStockErrors] = useState<
     { productId: string; reason: string }[] | null
   >(null);
@@ -169,13 +174,19 @@ const Checkout = () => {
   useEffect(() => {
     if (cep.length !== 8 || orderItems.length === 0) {
       setShippingQuotes(null);
+      setShippingFree({ threshold: null, amount: null });
       return;
     }
     let cancelled = false;
     setIsQuotingShipping(true);
     quoteShipping({ cep, items: orderItems })
       .then((res) => {
-        if (!cancelled) setShippingQuotes(res.options);
+        if (cancelled) return;
+        setShippingQuotes(res.options);
+        setShippingFree({
+          threshold: res.freeShippingThreshold,
+          amount: res.amountToFreeShipping,
+        });
       })
       .catch((err) => {
         if (cancelled) return;
@@ -183,6 +194,7 @@ const Checkout = () => {
           err instanceof ApiError ? err.message : "Não foi possível calcular o frete.";
         toast({ title: "Frete", description: message, variant: "destructive" });
         setShippingQuotes(null);
+        setShippingFree({ threshold: null, amount: null });
       })
       .finally(() => {
         if (!cancelled) setIsQuotingShipping(false);
@@ -438,6 +450,8 @@ const Checkout = () => {
             quotes={shippingQuotes}
             isQuoting={isQuotingShipping}
             onCepChange={setQuoteCep}
+            freeShippingThreshold={shippingFree.threshold}
+            amountToFreeShipping={shippingFree.amount}
           />
         );
       case 2:
